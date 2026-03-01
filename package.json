@@ -7,7 +7,8 @@
     "sync": "node uptime-kuma-sync.js",
     "backup": "node uptime-kuma-backup.js",
     "restore": "node uptime-kuma-restore.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postversion": "node -p \"require('./package.json').version\" > VERSION && git add VERSION && git commit -m 'Update VERSION file' && echo 'VERSION file updated'"
   },
   "keywords": [
     "uptime-kuma",

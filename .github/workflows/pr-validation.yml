@@ -1,0 +1,65 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for syntax errors
+        run: |
+          echo "Checking JavaScript files for syntax errors..."
+          for file in *.js; do
+            if [ -f "$file" ]; then
+              node --check "$file"
+              echo "✓ $file"
+            fi
+          done
+
+      - name: Validate configuration files
+        run: |
+          echo "Validating JSON files..."
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('uptime-kuma-config.json.example', 'utf8'))"
+          echo "✓ All JSON files are valid"
+
+      - name: Build Docker image
+        run: docker build -t uptime-kuma-sync:pr-${{ github.event.pull_request.number }} .
+
+      - name: Test Docker image
+        run: |
+          docker run --rm uptime-kuma-sync:pr-${{ github.event.pull_request.number }} node uptime-kuma-sync.js --help
+          docker run --rm uptime-kuma-sync:pr-${{ github.event.pull_request.number }} node uptime-kuma-backup.js --help
+
+      - name: Check version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      - name: PR Summary
+        run: |
+          echo "### PR Validation ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.head_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All checks passed!" >> $GITHUB_STEP_SUMMARY

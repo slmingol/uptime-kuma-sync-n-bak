@@ -1,5 +1,9 @@
 # Uptime Kuma Sync Tool
 
+[![Build and Push Container](https://github.com/slmingol/uptime-kuma-sync-n-bak/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/slmingol/uptime-kuma-sync-n-bak/actions/workflows/build-and-push.yml)
+[![Version](https://img.shields.io/github/v/release/slmingol/uptime-kuma-sync-n-bak)](https://github.com/slmingol/uptime-kuma-sync-n-bak/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 This tool synchronizes monitors and groups between two Uptime Kuma instances while preserving instance-specific settings.
 
 ## Features
@@ -68,7 +72,27 @@ cp .env.uptime-kuma .env.uptime-kuma.local
 
 No Node.js installation required! Run everything in a Docker container.
 
-### Quick Start
+### Using Pre-built Images (Easiest)
+
+Pull the latest image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest
+# or specific version
+docker pull ghcr.io/slmingol/uptime-kuma-sync-n-bak:1.0.0
+```
+
+Then use `uptime-kuma-docker.sh` (update the IMAGE_NAME variable to use ghcr.io image) or run directly:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
+  -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
+  ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest \
+  node uptime-kuma-backup.js --list
+```
+
+### Building Locally
 
 1. Build the Docker image:
 
