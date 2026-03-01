@@ -61,6 +61,19 @@ case "$1" in
     run_command node uptime-kuma-sync.js "$2" "$3"
     ;;
   
+  diff)
+    if [ -z "$2" ] || [ -z "$3" ]; then
+      echo "Usage: $0 diff <source-instance> <target-instance> [--tldr]"
+      exit 1
+    fi
+    SOURCE="$2"
+    TARGET="$3"
+    shift 3
+    FLAGS="$@"
+    echo "Comparing $SOURCE to $TARGET..."
+    run_command ./diff-uptime.sh "$SOURCE" "$TARGET" $FLAGS
+    ;;
+  
   restore)
     if [ -z "$2" ]; then
       echo "Usage: $0 restore <backup-file> [target-instance]"
@@ -100,6 +113,7 @@ Commands:
   list                              List available instances
   backup <instance>                 Backup an instance
   sync <source> <target>            Sync from source to target instance
+  diff <source> <target> [--tldr]   Compare monitors between two instances
   restore <backup-file> [instance]  Restore from backup
   build                             Build the container image
   shell                             Open interactive shell in container
@@ -111,12 +125,14 @@ Examples:
   ./uptime-kuma-docker.sh list
   ./uptime-kuma-docker.sh backup primary
   ./uptime-kuma-docker.sh sync primary secondary
+  ./uptime-kuma-docker.sh diff primary secondary
 
   # Using pre-built image from GitHub Container Registry
   export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
   ./uptime-kuma-docker.sh list
   ./uptime-kuma-docker.sh backup prim
   ./uptime-kuma-docker.sh sync primary secondary
+  ./uptime-kuma-docker.sh diff primary secondary
   ./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
 
 Requirements:

@@ -140,7 +140,10 @@ class UptimeKumaSync {
    */
   async saveMonitor(socket, monitor) {
     return new Promise((resolve, reject) => {
-      socket.emit('add', monitor, (res) => {
+      // Deep clone and remove undefined values that cause SQL errors
+      const cleanMonitor = JSON.parse(JSON.stringify(monitor));
+      
+      socket.emit('add', cleanMonitor, (res) => {
         if (res.ok) {
           resolve(res.monitorID);
         } else {
@@ -155,7 +158,10 @@ class UptimeKumaSync {
    */
   async updateMonitor(socket, monitor) {
     return new Promise((resolve, reject) => {
-      socket.emit('editMonitor', monitor, (res) => {
+      // Deep clone and remove undefined values that cause SQL errors
+      const cleanMonitor = JSON.parse(JSON.stringify(monitor));
+      
+      socket.emit('editMonitor', cleanMonitor, (res) => {
         if (res.ok) {
           resolve(res.monitorID);
         } else {
@@ -171,16 +177,68 @@ class UptimeKumaSync {
   cleanMonitorData(monitor) {
     const cleaned = { ...monitor };
     
-    // Remove excluded fields
+    // Array fields that should be reset to empty arrays instead of deleted
+    const arrayFields = ['notificationIDList', 'accepted_statuscodes'];
+    
+    // Remove excluded fields (or reset to empty array if it's an array field)
     this.excludedFields.forEach(field => {
-      delete cleaned[field];
+      if (arrayFields.includes(field)) {
+        // Special handling for accepted_statuscodes - use sensible default
+        if (field === 'accepted_statuscodes') {
+          cleaned[field] = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
+        } else {
+          cleaned[field] = [];
+        }
+      } else {
+        delete cleaned[field];
+      }
     });
+    
+    // Ensure notificationIDList exists as empty array if not already set
+    if (cleaned.notificationIDList === undefined || cleaned.notificationIDList === null) {
+      cleaned.notificationIDList = [];
+    }
+    
+    // Ensure accepted_statuscodes exists with sensible default if not already set
+    if (cleaned.accepted_statuscodes === undefined || cleaned.accepted_statuscodes === null) {
+      cleaned.accepted_statuscodes = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
+    }
     
     // Remove internal fields
     delete cleaned.id;
     delete cleaned.userId;
     delete cleaned.created_date;
     delete cleaned.updated_date;
+    
+    // Remove foreign key references that won't match across instances
+    delete cleaned.docker_host;
+    delete cleaned.parent;
+    
+    // Remove auto-generated/computed fields
+    delete cleaned.path;
+    delete cleaned.path_name;
+    
+    // Remove malformed fields (bugs in Uptime Kuma)
+    // Try multiple possible variations - be aggressive here
+    delete cleaned.children_i_ds;
+    delete cleaned.children_ids;
+    delete cleaned.childrenIds;
+    delete cleaned.children;
+    
+    // Remove any fields that are undefined or cause SQL errors
+    const keysToDelete = [];
+    Object.keys(cleaned).forEach(key => {
+      if (cleaned[key] === undefined) {
+        keysToDelete.push(key);
+      }
+      // Remove fields with malformed names (containing special chars that shouldn't be there)
+      if (key.includes('_i_d') && key !== 'tag_id' && key !== 'monitor_id') {
+        keysToDelete.push(key);
+      }
+    });
+    
+    // Actually delete them
+    keysToDelete.forEach(key => delete cleaned[key]);
     
     return cleaned;
   }
@@ -312,11 +370,13 @@ class UptimeKumaSync {
       let created = 0;
       let updated = 0;
       let skipped = 0;
+      const failedMonitors = [];
       
       for (const sourceMonitor of monitorList) {
+        let fullMonitor;
         try {
           // Get full monitor details
-          const fullMonitor = await this.getMonitor(sourceSocket, sourceMonitor.id);
+          fullMonitor = await this.getMonitor(sourceSocket, sourceMonitor.id);
           
           // Clean the monitor data
           const cleanedMonitor = this.cleanMonitorData(fullMonitor);
@@ -341,13 +401,48 @@ class UptimeKumaSync {
             await this.updateMonitor(targetSocket, cleanedMonitor);
             updated++;
           } else {
-            // Create new monitor
+            // Create new monitor using two-phase approach to work around server bug
             console.log(`Creating: ${cleanedMonitor.name}`);
-            await this.saveMonitor(targetSocket, cleanedMonitor);
+            
+            // Phase 1: Create with minimal required fields only
+            const minimalMonitor = {
+              name: cleanedMonitor.name,
+              type: cleanedMonitor.type,
+              active: true,
+              // Required array fields - use values from cleaned monitor
+              notificationIDList: [],
+              accepted_statuscodes: cleanedMonitor.accepted_statuscodes || ['200-299'],
+              // Required NOT NULL field
+              conditions: cleanedMonitor.conditions || {}
+            };
+            
+            // Add type-specific required fields
+            if (cleanedMonitor.url) minimalMonitor.url = cleanedMonitor.url;
+            if (cleanedMonitor.hostname) minimalMonitor.hostname = cleanedMonitor.hostname;
+            if (cleanedMonitor.port) minimalMonitor.port = cleanedMonitor.port;
+            
+            const monitorID = await this.saveMonitor(targetSocket, minimalMonitor);
+            
+            // Phase 2: Update with full details
+            cleanedMonitor.id = monitorID;
+            await this.updateMonitor(targetSocket, cleanedMonitor);
             created++;
           }
         } catch (err) {
-          console.error(`Error syncing monitor ${sourceMonitor.name}: ${err.message}`);
+          const errorMsg = err.message || '';
+          
+          // Check if it's a server-side schema error (children_i_ds bug)
+          if (errorMsg.includes('children_i_ds') || errorMsg.includes('SQLITE_ERROR')) {
+            console.error(`⚠ Schema Error: ${sourceMonitor.name} - Server-side Uptime Kuma bug`);
+            failedMonitors.push({
+              name: sourceMonitor.name,
+              type: fullMonitor?.type || 'unknown',
+              url: fullMonitor?.url || fullMonitor?.hostname || 'N/A',
+              reason: 'Server schema incompatibility (children_i_ds)'
+            });
+          } else {
+            console.error(`Error syncing monitor ${sourceMonitor.name}: ${errorMsg}`);
+          }
           skipped++;
         }
       }
@@ -357,6 +452,19 @@ class UptimeKumaSync {
       console.log(`Updated: ${updated}`);
       console.log(`Skipped: ${skipped}`);
       console.log(`Total: ${monitorList.length}`);
+      
+      // Report failed monitors if any
+      if (failedMonitors.length > 0) {
+        console.log('\n⚠ Failed Monitors (Server Schema Incompatibility):');
+        console.log('These monitors could not be created due to an Uptime Kuma server bug.');
+        console.log('You may need to create them manually in the target instance.\n');
+        failedMonitors.forEach((monitor, idx) => {
+          console.log(`${idx + 1}. ${monitor.name}`);
+          console.log(`   Type: ${monitor.type}`);
+          console.log(`   URL: ${monitor.url}`);
+          console.log(`   Reason: ${monitor.reason}\n`);
+        });
+      }
       
     } catch (err) {
       console.error('Sync failed:', err.message);
@@ -505,17 +613,23 @@ Configuration:
   process.exit(0);
 }
 
-const sourceName = args[0];
-const targetName = args[1];
+// Only run if this file is executed directly (not required as a module)
+if (require.main === module) {
+  const sourceName = args[0];
+  const targetName = args[1];
 
-// Configuration
-const config = loadConfig(sourceName, targetName);
+  // Configuration
+  const config = loadConfig(sourceName, targetName);
 
-// Show warning if using default values
-if (!sourceName && !process.env.SOURCE_UPTIME_URL) {
-  console.warn('Warning: Using default localhost URLs. Configure uptime-kuma-config.json or set environment variables.\n');
+  // Show warning if using default values
+  if (!sourceName && !process.env.SOURCE_UPTIME_URL) {
+    console.warn('Warning: Using default localhost URLs. Configure uptime-kuma-config.json or set environment variables.\n');
+  }
+
+  // Run sync
+  const syncer = new UptimeKumaSync(config);
+  syncer.sync();
 }
 
-// Run sync
-const syncer = new UptimeKumaSync(config);
-syncer.sync();
+// Export for testing
+module.exports = UptimeKumaSync;

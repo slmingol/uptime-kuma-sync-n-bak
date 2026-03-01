@@ -5,9 +5,10 @@
   "main": "uptime-kuma-sync.js",
   "scripts": {
     "sync": "node uptime-kuma-sync.js",
+    "diff": "node uptime-kuma-diff.js",
     "backup": "node uptime-kuma-backup.js",
     "restore": "node uptime-kuma-restore.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "postversion": "node -p \"require('./package.json').version\" > VERSION && git add VERSION && git commit -m 'Update VERSION file' && echo 'VERSION file updated'"
   },
   "keywords": [
