@@ -76,10 +76,14 @@ class UptimeKumaSync {
    */
   async getMonitors(socket) {
     return new Promise((resolve, reject) => {
+      // Listen for monitorList event
+      socket.once('monitorList', (data) => {
+        resolve(data);
+      });
+      
+      // Request monitor list
       socket.emit('getMonitorList', (res) => {
-        if (res.ok) {
-          resolve(res);
-        } else {
+        if (res && res.ok === false) {
           reject(new Error('Failed to get monitor list'));
         }
       });
