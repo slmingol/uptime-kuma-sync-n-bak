@@ -32,10 +32,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/uptime-kuma-sync-n-bak.git"
+    "url": "git+https://github.com/slmingol/uptime-kuma-sync-n-bak.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/uptime-kuma-sync-n-bak/issues"
+    "url": "https://github.com/slmingol/uptime-kuma-sync-n-bak/issues"
   },
-  "homepage": "https://github.com/yourusername/uptime-kuma-sync-n-bak#readme"
+  "homepage": "https://github.com/slmingol/uptime-kuma-sync-n-bak#readme"
 }
