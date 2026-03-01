@@ -4,7 +4,9 @@
 # This makes it easy to run commands without remembering docker run syntax
 # Supports both Docker and Podman
 
-IMAGE_NAME="uptime-kuma-sync:latest"
+# Allow users to override the image name (e.g., to use ghcr.io)
+# export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
+IMAGE_NAME="${UPTIME_KUMA_IMAGE:-uptime-kuma-sync:latest}"
 
 # Detect container runtime (docker or podman)
 if command -v docker &> /dev/null; then
@@ -90,7 +92,9 @@ case "$1" in
     cat << 'EOF'
 Docker/Podman Wrapper for Uptime Kuma Sync & Backup
 
-Usage: ./uptime-kuma-docker.sh <command> [options]
+Environment Variables:
+  UPTIME_KUMA_IMAGE    Override default image (default: uptime-kuma-sync:latest)
+                       Example: export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
 
 Commands:
   list                              List available instances
@@ -102,9 +106,16 @@ Commands:
   help                              Show this help message
 
 Examples:
+  # Using local built image
   ./uptime-kuma-docker.sh build
   ./uptime-kuma-docker.sh list
   ./uptime-kuma-docker.sh backup primary
+  ./uptime-kuma-docker.sh sync primary secondary
+
+  # Using pre-built image from GitHub Container Registry
+  export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
+  ./uptime-kuma-docker.sh list
+  ./uptime-kuma-docker.sh backup prim
   ./uptime-kuma-docker.sh sync primary secondary
   ./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
 
