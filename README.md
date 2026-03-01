@@ -17,6 +17,7 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 - ✅ **Automatic backup before sync** - Creates a timestamped backup of the target instance
 - ✅ **Standalone backup tool** - Backup any instance on demand
 - ✅ **Restore tool** - Restore from any backup file
+- ✅ **Diff tool** - Compare monitors between two instances
 
 ## Installation
 
@@ -129,6 +130,7 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 ./uptime-kuma-docker.sh list                              # List configured instances
 ./uptime-kuma-docker.sh backup <instance>                 # Backup an instance
 ./uptime-kuma-docker.sh sync <source> <target>            # Sync instances
+./uptime-kuma-docker.sh diff <source> <target>            # Compare instances
 ./uptime-kuma-docker.sh restore <backup-file> [instance]  # Restore from backup
 ./uptime-kuma-docker.sh build                             # Build the image
 ./uptime-kuma-docker.sh shell                             # Interactive shell
@@ -154,6 +156,9 @@ docker-compose run --rm uptime-kuma-sync node uptime-kuma-backup.js primary
 
 # Sync
 docker-compose run --rm uptime-kuma-sync node uptime-kuma-sync.js primary secondary
+
+# Diff
+docker-compose run --rm uptime-kuma-sync node uptime-kuma-diff.js primary secondary
 
 # List instances
 docker-compose run --rm uptime-kuma-sync node uptime-kuma-backup.js --list
@@ -269,6 +274,125 @@ node uptime-kuma-restore.js uptime-kuma-backups/backup.json
 ```
 
 **Note:** Restoring will ADD monitors from the backup. It won't delete existing monitors.
+
+### Compare Instances (Diff)
+
+Compare monitors between two instances to see what's different:
+
+```bash
+# Using bash wrapper
+./diff-uptime.sh primary secondary
+
+# Or run directly
+node uptime-kuma-diff.js primary secondary
+
+# Or with npm
+npm run diff primary secondary
+
+# Show condensed summary (TL;DR mode)
+./diff-uptime.sh primary secondary --tldr
+node uptime-kuma-diff.js primary secondary --tldr
+```
+
+The diff tool shows:
+- **Identical monitors** - Monitors that match completely
+- **Different monitors** - Monitors with the same name but different settings
+- **Only in source** - Monitors that exist only in the first instance
+- **Only in target** - Monitors that exist only in the second instance
+
+**TL;DR Mode:** Use `--tldr` flag to show a condensed summary with just monitor names and the most common differences, perfect for a quick overview.
+
+Output Example:
+```
+Comparing monitors from primary to secondary...
+Fetched 201 monitors from primary
+Fetched 202 monitors from secondary
+
+=== Summary ===
+Identical monitors: 160
+Different monitors: 41
+Only in primary: 0
+Only in secondary: 1
+
+--- Monitors with differences (41) ---
+  • Core Svcs [group] - 1 field(s) different
+  • DNS - bubs.us.to [dns] - 1 field(s) different
+  • WEB - Bandle [http] - 2 field(s) different
+  ...
+
+--- Most common differences ---
+  • tags: 31 monitor(s)
+  • childrenIDs: 9 monitor(s)
+  • pathName: 9 monitor(s)
+```
+
+Or for full detail (without `--tldr`):
+```
+=== Differences ===
+Monitor: Disk Usage
+  childrenIDs: [147,146,145] → [224,223,222]
+...
+```
+
+See [README.diff.md](README.diff.md) for detailed documentation.
+
+**Docker Usage:**
+```bash
+# Using docker-compose
+docker-compose run --rm uptime-kuma-sync ./diff-uptime.sh primary secondary
+docker-compose run --rm uptime-kuma-sync ./diff-uptime.sh primary secondary --tldr
+
+# Using Docker wrapper script
+./uptime-kuma-docker.sh diff primary secondary
+./uptime-kuma-docker.sh diff primary secondary --tldr
+```
+
+### Using Diff to Determine Sync Direction
+
+The sync tool is **bi-directional** and **safe** - you can sync in either direction with automatic backups. Use the diff tool to determine which instance has the correct configuration:
+
+**Safety Features:**
+- ✅ Automatic backup of target instance before sync
+- ✅ Non-destructive - updates existing monitors and creates missing ones (doesn't delete)
+- ✅ Preserves instance-specific settings (intervals, timeouts, notifications)
+
+**Workflow to Get Instances In Sync:**
+
+```bash
+# 1. Compare both directions to see what's different
+./diff-uptime.sh primary secondary --tldr
+./diff-uptime.sh secondary primary --tldr
+
+# 2. Identify your "source of truth" (the instance with correct data)
+#    - Which has the correct tags/groups?
+#    - Which has the correct monitor configurations?
+#    - Which has the latest changes you want to keep?
+
+# 3. Sync FROM your source of truth TO the other instance
+./sync-uptime.sh <correct-instance> <target-instance>
+
+# 4. Verify instances are now in sync
+./diff-uptime.sh primary secondary --tldr
+```
+
+**Example Scenario:**
+
+Your diff shows secondary has 1 extra monitor and different tags on 31 monitors:
+```bash
+# Check what secondary would change in primary
+./diff-uptime.sh secondary primary --tldr
+
+# If secondary has the correct tags, sync it to primary
+./sync-uptime.sh secondary primary
+
+# Or if primary is correct, sync the other direction
+./sync-uptime.sh primary secondary
+```
+
+**Backup Location:** The tool creates timestamped backups in `uptime-kuma-backups/` before each sync. You can restore if needed:
+```bash
+./restore-uptime.sh uptime-kuma-backups/primary-2026-03-01T15-30-00.json primary
+```
 
 ### Automated Sync
 
