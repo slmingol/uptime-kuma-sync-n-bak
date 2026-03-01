@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+uptime-kuma-backups
+uptime-kuma-config.json
+.env*
+.git
+.gitignore
+README.md
+LICENSE
+UPTIME_KUMA_SYNC.md
+*.backup

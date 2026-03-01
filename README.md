@@ -64,6 +64,98 @@ Copy `.env.uptime-kuma` to `.env.uptime-kuma.local` and configure:
 cp .env.uptime-kuma .env.uptime-kuma.local
 ```
 
+## Docker Installation (Recommended for Portability)
+
+No Node.js installation required! Run everything in a Docker container.
+
+### Quick Start
+
+1. Build the Docker image:
+
+```bash
+./docker-run.sh build
+```
+
+2. Create your config file:
+
+```bash
+cp uptime-kuma-config.json.example uptime-kuma-config.json
+# Edit with your instance details
+```
+
+3. Run commands:
+
+```bash
+# List available instances
+./docker-run.sh list
+
+# Backup an instance
+./docker-run.sh backup primary
+
+# Sync between instances
+./docker-run.sh sync primary secondary
+
+# Restore from backup
+./docker-run.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
+```
+
+### Docker Commands Reference
+
+```bash
+./docker-run.sh list                              # List configured instances
+./docker-run.sh backup <instance>                 # Backup an instance
+./docker-run.sh sync <source> <target>            # Sync instances
+./docker-run.sh restore <backup-file> [instance]  # Restore from backup
+./docker-run.sh build                             # Build the image
+./docker-run.sh shell                             # Interactive shell
+./docker-run.sh help                              # Show help
+```
+
+### Docker Compose (For Scheduled Backups)
+
+The `docker-compose.yml` file includes a service for scheduled backups:
+
+```yaml
+# Edit docker-compose.yml to customize backup schedule
+# Default: backup every 6 hours
+
+docker-compose up -d uptime-kuma-backup-cron
+```
+
+To run one-off commands with docker-compose:
+
+```bash
+# Backup
+docker-compose run --rm uptime-kuma-sync node uptime-kuma-backup.js primary
+
+# Sync
+docker-compose run --rm uptime-kuma-sync node uptime-kuma-sync.js primary secondary
+
+# List instances
+docker-compose run --rm uptime-kuma-sync node uptime-kuma-backup.js --list
+```
+
+### Manual Docker Run
+
+If you prefer direct `docker run` commands:
+
+```bash
+# Build image
+docker build -t uptime-kuma-sync:latest .
+
+# Run backup
+docker run --rm \
+  -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
+  -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
+  uptime-kuma-sync:latest node uptime-kuma-backup.js primary
+
+# Run sync
+docker run --rm \
+  -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
+  -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
+  uptime-kuma-sync:latest node uptime-kuma-sync.js primary secondary
+```
+
 ## Usage
 
 ### Sync with Named Instances (Recommended)
@@ -402,11 +494,25 @@ Example:
 
 ## Scripts Overview
 
+### Core Node.js Scripts
 - **uptime-kuma-sync.js** - Sync monitors between two instances (auto-backup included)
 - **uptime-kuma-backup.js** - Standalone backup tool for any instance
 - **uptime-kuma-restore.js** - Restore monitors from a backup file
-- **sync-uptime.sh** - Convenience wrapper script
-- **uptime-kuma-config.json** - Instance configuration file
+
+### Bash Wrapper Scripts
+- **sync-uptime.sh** - Convenience wrapper for syncing
+- **backup-uptime.sh** - Convenience wrapper for backups
+- **restore-uptime.sh** - Convenience wrapper for restoring
+
+### Docker Scripts
+- **docker-run.sh** - All-in-one Docker wrapper (recommended)
+- **Dockerfile** - Container definition
+- **docker-compose.yml** - For scheduled backups and easy deployment
+
+### Configuration Files
+- **uptime-kuma-config.json** - Instance configuration (create from .example file)
+- **uptime-kuma-config.json.example** - Template configuration file
+- **.env.uptime-kuma** - Environment variable template (optional)
 
 ## Notes
 
