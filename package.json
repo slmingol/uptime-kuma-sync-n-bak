@@ -1,0 +1,41 @@
+{
+  "name": "uptime-kuma-sync-n-bak",
+  "version": "1.0.0",
+  "description": "Sync monitors and groups between multiple Uptime Kuma instances while preserving instance-specific settings. Includes automatic backup and restore functionality.",
+  "main": "uptime-kuma-sync.js",
+  "scripts": {
+    "sync": "node uptime-kuma-sync.js",
+    "backup": "node uptime-kuma-backup.js",
+    "restore": "node uptime-kuma-restore.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "uptime-kuma",
+    "monitoring",
+    "sync",
+    "backup",
+    "restore",
+    "multi-instance",
+    "high-availability"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.7",
+    "socket.io-client": "^4.6.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/uptime-kuma-sync-n-bak.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/uptime-kuma-sync-n-bak/issues"
+  },
+  "homepage": "https://github.com/yourusername/uptime-kuma-sync-n-bak#readme"
+}

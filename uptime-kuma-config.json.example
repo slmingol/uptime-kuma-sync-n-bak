@@ -1,0 +1,41 @@
+# Copy this file to uptime-kuma-config.json and configure your instances
+{
+  "instances": {
+    "primary": {
+      "url": "https://uptime1.example.com",
+      "username": "admin",
+      "password": "your-password-here",
+      "description": "Primary production monitoring instance"
+    },
+    "secondary": {
+      "url": "https://uptime2.example.com",
+      "username": "admin",
+      "password": "your-password-here",
+      "description": "Secondary/backup monitoring instance"
+    },
+    "local-dev": {
+      "url": "http://localhost:3001",
+      "username": "admin",
+      "password": "admin",
+      "description": "Local development instance"
+    }
+  },
+  "backup": {
+    "directory": "./uptime-kuma-backups"
+  },
+  "sync": {
+    "excludedFields": [
+      "interval",
+      "retryInterval",
+      "resendInterval",
+      "maxretries",
+      "timeout",
+      "upside_down",
+      "maxredirects",
+      "accepted_statuscodes",
+      "dns_resolve_type",
+      "dns_resolve_server",
+      "notificationIDList"
+    ]
+  }
+}
