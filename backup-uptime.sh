@@ -3,6 +3,12 @@
 # Uptime Kuma Backup Script
 # Usage: ./backup-uptime.sh <instance-name>
 
+# Check for --list flag
+if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+  node uptime-kuma-backup.js --list
+  exit 0
+fi
+
 # Check if instance name provided
 if [ $# -eq 1 ]; then
   # Use named instance from config
@@ -15,6 +21,10 @@ elif [ $# -eq 0 ]; then
     node uptime-kuma-backup.js
   else
     echo "Usage: ./backup-uptime.sh <instance-name>"
+    echo "       ./backup-uptime.sh --list"
+    echo ""
+    echo "Options:"
+    echo "  --list, -l       List available instances"
     echo ""
     echo "Examples:"
     echo "  ./backup-uptime.sh primary      # Backup 'primary' instance from config"

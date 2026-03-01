@@ -370,6 +370,37 @@ class UptimeKumaSync {
 }
 
 /**
+ * List available instances from config file
+ */
+function listInstances() {
+  const configFile = process.env.CONFIG_FILE || './uptime-kuma-config.json';
+  
+  if (!fs.existsSync(configFile)) {
+    console.log('No config file found at:', configFile);
+    console.log('Create uptime-kuma-config.json to define instances.');
+    return;
+  }
+  
+  const fileConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+  
+  if (!fileConfig.instances || Object.keys(fileConfig.instances).length === 0) {
+    console.log('No instances defined in config file.');
+    return;
+  }
+  
+  console.log('\nAvailable instances:\n');
+  
+  for (const [name, config] of Object.entries(fileConfig.instances)) {
+    console.log(`  ${name}`);
+    console.log(`    URL: ${config.url}`);
+    if (config.description) {
+      console.log(`    Description: ${config.description}`);
+    }
+    console.log('');
+  }
+}
+
+/**
  * Load configuration from file or environment
  */
 function loadConfig(sourceName, targetName) {
@@ -442,16 +473,22 @@ function defaultExcludedFields() {
 // Parse command line arguments
 const args = process.argv.slice(2);
 
+if (args.includes('--list') || args.includes('-l')) {
+  listInstances();
+  process.exit(0);
+}
+
 if (args.includes('--help') || args.includes('-h')) {
   console.log(`
 Uptime Kuma Sync Tool
 
 Usage:
-  node uptime-kuma-sync.js [source-name] [target-name]
+  node uptime-kuma-sync.js <source-instance> <target-instance>
   node uptime-kuma-sync.js [options]
 
 Options:
-  -h, --help    Show this help message
+  -h, --help       Show this help message
+  -l, --list       List available instances
 
 Examples:
   # Using named instances from uptime-kuma-config.json:

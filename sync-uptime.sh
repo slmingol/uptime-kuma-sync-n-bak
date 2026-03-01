@@ -3,6 +3,12 @@
 # Uptime Kuma Sync Script
 # Usage: ./sync-uptime.sh [source-instance] [target-instance]
 
+# Check for --list flag
+if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+  node uptime-kuma-sync.js --list
+  exit 0
+fi
+
 # Check if instance names provided
 if [ $# -eq 2 ]; then
   # Use named instances from config
@@ -14,7 +20,11 @@ elif [ -f .env.uptime-kuma.local ]; then
   node uptime-kuma-sync.js
 else
   echo "Usage: ./sync-uptime.sh <source-instance> <target-instance>"
+  echo "       ./sync-uptime.sh --list"
   echo "   or: Configure .env.uptime-kuma.local for environment variable approach"
+  echo ""
+  echo "Options:"
+  echo "  --list, -l       List available instances"
   echo ""
   echo "Examples:"
   echo "  ./sync-uptime.sh primary secondary  # Using named instances"

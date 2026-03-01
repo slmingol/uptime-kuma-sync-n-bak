@@ -3,9 +3,19 @@
 # Uptime Kuma Restore Script
 # Usage: ./restore-uptime.sh <backup-file> [instance-name]
 
+# Check for --list flag
+if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+  node uptime-kuma-restore.js --list
+  exit 0
+fi
+
 # Check arguments
 if [ $# -lt 1 ]; then
   echo "Usage: ./restore-uptime.sh <backup-file> [instance-name]"
+  echo "       ./restore-uptime.sh --list"
+  echo ""
+  echo "Options:"
+  echo "  --list, -l       List available instances"
   echo ""
   echo "Arguments:"
   echo "  backup-file      Path to backup JSON file (required)"
