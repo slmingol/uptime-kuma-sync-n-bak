@@ -73,7 +73,7 @@ No Node.js installation required! Run everything in a Docker container.
 1. Build the Docker image:
 
 ```bash
-./docker-run.sh build
+./uptime-kuma-docker.sh build
 ```
 
 2. Create your config file:
@@ -87,28 +87,28 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 
 ```bash
 # List available instances
-./docker-run.sh list
+./uptime-kuma-docker.sh list
 
 # Backup an instance
-./docker-run.sh backup primary
+./uptime-kuma-docker.sh backup primary
 
 # Sync between instances
-./docker-run.sh sync primary secondary
+./uptime-kuma-docker.sh sync primary secondary
 
 # Restore from backup
-./docker-run.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
+./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
 ```
 
 ### Docker Commands Reference
 
 ```bash
-./docker-run.sh list                              # List configured instances
-./docker-run.sh backup <instance>                 # Backup an instance
-./docker-run.sh sync <source> <target>            # Sync instances
-./docker-run.sh restore <backup-file> [instance]  # Restore from backup
-./docker-run.sh build                             # Build the image
-./docker-run.sh shell                             # Interactive shell
-./docker-run.sh help                              # Show help
+./uptime-kuma-docker.sh list                              # List configured instances
+./uptime-kuma-docker.sh backup <instance>                 # Backup an instance
+./uptime-kuma-docker.sh sync <source> <target>            # Sync instances
+./uptime-kuma-docker.sh restore <backup-file> [instance]  # Restore from backup
+./uptime-kuma-docker.sh build                             # Build the image
+./uptime-kuma-docker.sh shell                             # Interactive shell
+./uptime-kuma-docker.sh help                              # Show help
 ```
 
 ### Docker Compose (For Scheduled Backups)
@@ -505,7 +505,7 @@ Example:
 - **restore-uptime.sh** - Convenience wrapper for restoring
 
 ### Docker Scripts
-- **docker-run.sh** - All-in-one Docker wrapper (recommended)
+- **uptime-kuma-docker.sh** - All-in-one Docker wrapper (recommended)
 - **Dockerfile** - Container definition
 - **docker-compose.yml** - For scheduled backups and easy deployment
 

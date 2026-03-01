@@ -90,7 +90,7 @@ case "$1" in
     cat << 'EOF'
 Docker/Podman Wrapper for Uptime Kuma Sync & Backup
 
-Usage: ./docker-run.sh <command> [options]
+Usage: ./uptime-kuma-docker.sh <command> [options]
 
 Commands:
   list                              List available instances
@@ -102,11 +102,11 @@ Commands:
   help                              Show this help message
 
 Examples:
-  ./docker-run.sh build
-  ./docker-run.sh list
-  ./docker-run.sh backup primary
-  ./docker-run.sh sync primary secondary
-  ./docker-run.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
+  ./uptime-kuma-docker.sh build
+  ./uptime-kuma-docker.sh list
+  ./uptime-kuma-docker.sh backup primary
+  ./uptime-kuma-docker.sh sync primary secondary
+  ./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
 
 Requirements:
   - Docker or Podman installed
