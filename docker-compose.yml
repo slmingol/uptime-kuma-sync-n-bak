@@ -11,9 +11,9 @@ services:
       # Mount backup directory
       - ./uptime-kuma-backups:/app/uptime-kuma-backups
     # Override command - examples below
-    # command: node uptime-kuma-backup.js primary
-    # command: node uptime-kuma-sync.js primary secondary
-    # command: node uptime-kuma-restore.js /app/uptime-kuma-backups/primary-2026-03-01.json secondary
+    # command: node src/uptime-kuma-backup.js primary
+    # command: node src/uptime-kuma-sync.js primary secondary
+    # command: node src/uptime-kuma-restore.js /app/uptime-kuma-backups/primary-2026-03-01.json secondary
 
   # For scheduled backups (optional)
   uptime-kuma-backup-cron:
@@ -27,4 +27,4 @@ services:
     # This runs a backup every 6 hours
     # Customize the schedule and instance name as needed
     entrypoint: /bin/sh
-    command: -c "while true; do node uptime-kuma-backup.js primary; sleep 21600; done"
+    command: -c "while true; do node src/uptime-kuma-backup.js primary; sleep 21600; done"

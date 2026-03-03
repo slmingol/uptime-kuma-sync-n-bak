@@ -45,7 +45,7 @@ if [ $# -ge 2 ]; then
     FLAGS="$@"
     
     echo "Comparing '$SOURCE' to '$TARGET'..."
-    node uptime-kuma-diff.js "$SOURCE" "$TARGET" $FLAGS
+    node ../src/uptime-kuma-diff.js "$SOURCE" "$TARGET" $FLAGS
     exit $?
 fi
 
@@ -61,7 +61,7 @@ if [ -f .env.uptime-kuma.local ]; then
     fi
     
     echo "Comparing '$SOURCE_INSTANCE' to '$TARGET_INSTANCE'..."
-    node uptime-kuma-diff.js "$SOURCE_INSTANCE" "$TARGET_INSTANCE"
+    node ../src/uptime-kuma-diff.js "$SOURCE_INSTANCE" "$TARGET_INSTANCE"
     exit $?
 fi
 

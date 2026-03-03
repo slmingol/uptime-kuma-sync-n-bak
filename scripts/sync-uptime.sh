@@ -5,7 +5,7 @@
 
 # Check for --list flag
 if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
-  node uptime-kuma-sync.js --list
+  node ../src/uptime-kuma-sync.js --list
   exit 0
 fi
 
@@ -13,11 +13,11 @@ fi
 if [ $# -eq 2 ]; then
   # Use named instances from config
   echo "Syncing from '$1' to '$2'..."
-  node uptime-kuma-sync.js "$1" "$2"
+  node ../src/uptime-kuma-sync.js "$1" "$2"
 elif [ -f .env.uptime-kuma.local ]; then
   # Load environment variables from .env file
   export $(cat .env.uptime-kuma.local | grep -v '^#' | xargs)
-  node uptime-kuma-sync.js
+  node ../src/uptime-kuma-sync.js
 else
   echo "Usage: ./sync-uptime.sh <source-instance> <target-instance>"
   echo "       ./sync-uptime.sh --list"

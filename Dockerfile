@@ -22,16 +22,15 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm ci --only=production
-Add version info
+# Add version info
 RUN echo "${VERSION}" > /app/VERSION
 
-# 
 # Copy application files
-COPY *.js ./
-COPY *.sh ./
+COPY src/ ./src/
+COPY scripts/ ./scripts/
 
 # Make shell scripts executable
-RUN chmod +x *.sh
+RUN chmod +x scripts/*.sh
 
 # Create directories for config and backups
 RUN mkdir -p /app/uptime-kuma-backups /app/config
@@ -40,4 +39,4 @@ RUN mkdir -p /app/uptime-kuma-backups /app/config
 VOLUME ["/app/config", "/app/uptime-kuma-backups"]
 
 # Default command shows help
-CMD ["node", "uptime-kuma-sync.js", "--help"]
+CMD ["node", "src/uptime-kuma-sync.js", "--help"]

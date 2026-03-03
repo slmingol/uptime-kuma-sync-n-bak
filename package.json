@@ -2,12 +2,12 @@
   "name": "uptime-kuma-sync-n-bak",
   "version": "1.0.0",
   "description": "Sync monitors and groups between multiple Uptime Kuma instances while preserving instance-specific settings. Includes automatic backup and restore functionality.",
-  "main": "uptime-kuma-sync.js",
+  "main": "src/uptime-kuma-sync.js",
   "scripts": {
-    "sync": "node uptime-kuma-sync.js",
-    "diff": "node uptime-kuma-diff.js",
-    "backup": "node uptime-kuma-backup.js",
-    "restore": "node uptime-kuma-restore.js",
+    "sync": "node src/uptime-kuma-sync.js",
+    "diff": "node src/uptime-kuma-diff.js",
+    "backup": "node src/uptime-kuma-backup.js",
+    "restore": "node src/uptime-kuma-restore.js",
     "test": "node --test",
     "postversion": "node -p \"require('./package.json').version\" > VERSION && git add VERSION && git commit -m 'Update VERSION file' && echo 'VERSION file updated'"
   },

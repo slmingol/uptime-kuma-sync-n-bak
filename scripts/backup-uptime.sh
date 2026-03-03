@@ -5,7 +5,7 @@
 
 # Check for --list flag
 if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
-  node uptime-kuma-backup.js --list
+  node ../src/uptime-kuma-backup.js --list
   exit 0
 fi
 
@@ -13,12 +13,12 @@ fi
 if [ $# -eq 1 ]; then
   # Use named instance from config
   echo "Backing up instance '$1'..."
-  node uptime-kuma-backup.js "$1"
+  node ../src/uptime-kuma-backup.js "$1"
 elif [ $# -eq 0 ]; then
   # Check if .env file exists for environment variable approach
   if [ -f .env.uptime-kuma.local ]; then
     export $(cat .env.uptime-kuma.local | grep -v '^#' | xargs)
-    node uptime-kuma-backup.js
+    node ../src/uptime-kuma-backup.js
   else
     echo "Usage: ./backup-uptime.sh <instance-name>"
     echo "       ./backup-uptime.sh --list"

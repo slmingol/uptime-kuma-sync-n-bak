@@ -5,7 +5,7 @@
 
 # Check for --list flag
 if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
-  node uptime-kuma-restore.js --list
+  node ../src/uptime-kuma-restore.js --list
   exit 0
 fi
 
@@ -39,8 +39,8 @@ fi
 # Run restore
 if [ -n "$INSTANCE_NAME" ]; then
   echo "Restoring from '$BACKUP_FILE' to instance '$INSTANCE_NAME'..."
-  node uptime-kuma-restore.js "$BACKUP_FILE" "$INSTANCE_NAME"
+  node ../src/uptime-kuma-restore.js "$BACKUP_FILE" "$INSTANCE_NAME"
 else
   echo "Restoring from '$BACKUP_FILE'..."
-  node uptime-kuma-restore.js "$BACKUP_FILE"
+  node ../src/uptime-kuma-restore.js "$BACKUP_FILE"
 fi
