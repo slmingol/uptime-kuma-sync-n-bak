@@ -24,6 +24,7 @@
     "directory": "./uptime-kuma-backups"
   },
   "sync": {
+    "mode": "shallow",
     "excludedFields": [
       "interval",
       "retryInterval",
@@ -37,5 +38,9 @@
       "dns_resolve_server",
       "notificationIDList"
     ]
+  },
+  "_comments": {
+    "sync.mode": "Set to 'shallow' (default) to preserve instance-specific settings, or 'deep' to copy everything. Can be overridden with --deep or --shallow flags.",
+    "sync.excludedFields": "Fields to exclude in shallow mode. In deep mode, all fields are copied regardless of this list."
   }
 }
