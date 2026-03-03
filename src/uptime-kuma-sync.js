@@ -22,6 +22,7 @@ class UptimeKumaSync {
     this.sourceName = config.sourceName || 'source';
     this.targetName = config.targetName || 'target';
     this.backupDir = config.backupDir || './uptime-kuma-backups';
+    this.syncMode = config.syncMode || 'shallow'; // 'shallow' or 'deep'
     this.excludedFields = config.excludedFields || [
       'interval',
       'retryInterval',
@@ -172,7 +173,9 @@ class UptimeKumaSync {
   }
 
   /**
-   * Clean monitor data by removing instance-specific fields
+   * Clean monitor data for syncing
+   * In shallow mode: removes instance-specific fields (intervals, timeouts, etc.) 
+   * In deep mode: copies ALL fields including instance-specific settings
    */
   cleanMonitorData(monitor) {
     const cleaned = { ...monitor };
@@ -180,26 +183,31 @@ class UptimeKumaSync {
     // Array fields that should be reset to empty arrays instead of deleted
     const arrayFields = ['notificationIDList', 'accepted_statuscodes'];
     
-    // Remove excluded fields (or reset to empty array if it's an array field)
-    this.excludedFields.forEach(field => {
-      if (arrayFields.includes(field)) {
-        // Special handling for accepted_statuscodes - use sensible default
-        if (field === 'accepted_statuscodes') {
-          cleaned[field] = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
+    // In shallow mode, remove excluded fields to preserve target's instance-specific settings
+    // In deep mode, keep all fields - we want an exact copy
+    if (this.syncMode === 'shallow') {
+      // Remove excluded fields (or reset to empty array if it's an array field)
+      this.excludedFields.forEach(field => {
+        if (arrayFields.includes(field)) {
+          // Special handling for accepted_statuscodes - use sensible default
+          if (field === 'accepted_statuscodes') {
+            cleaned[field] = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
+          } else {
+            cleaned[field] = [];
+          }
         } else {
-          cleaned[field] = [];
+          delete cleaned[field];
         }
-      } else {
-        delete cleaned[field];
+      });
+      
+      // Ensure notificationIDList exists as empty array if not already set
+      if (cleaned.notificationIDList === undefined || cleaned.notificationIDList === null) {
+        cleaned.notificationIDList = [];
       }
-    });
-    
-    // Ensure notificationIDList exists as empty array if not already set
-    if (cleaned.notificationIDList === undefined || cleaned.notificationIDList === null) {
-      cleaned.notificationIDList = [];
     }
     
-    // Ensure accepted_statuscodes exists with sensible default if not already set
+    // Always ensure accepted_statuscodes exists with sensible default if not already set
+    // (applies to both modes)
     if (cleaned.accepted_statuscodes === undefined || cleaned.accepted_statuscodes === null) {
       cleaned.accepted_statuscodes = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
     }
@@ -351,6 +359,8 @@ class UptimeKumaSync {
       console.log('\n=== Starting Sync ===');
       console.log(`From: ${this.sourceName} (${this.sourceUrl})`);
       console.log(`To: ${this.targetName} (${this.targetUrl})`);
+      console.log(`Mode: ${this.syncMode.toUpperCase()} ${this.syncMode === 'deep' ? '(copying ALL settings)' : '(preserving instance-specific settings)'}`);
+      console.log(`Mode: ${this.syncMode.toUpperCase()} ${this.syncMode === 'deep' ? '(copying all settings)' : '(preserving instance-specific settings)'}`);
       console.log('Syncing tags...');
       const tagMapping = await this.syncTags(sourceSocket, targetSocket);
       console.log(`Tag mapping created: ${Object.keys(tagMapping).length} tags\n`);
@@ -511,7 +521,7 @@ function listInstances() {
 /**
  * Load configuration from file or environment
  */
-function loadConfig(sourceName, targetName) {
+function loadConfig(sourceName, targetName, options = {}) {
   const configFile = process.env.CONFIG_FILE || './uptime-kuma-config.json';
   
   // If instance names provided, load from config file
@@ -543,6 +553,7 @@ function loadConfig(sourceName, targetName) {
       targetPassword: target.password,
       targetName: targetName,
       backupDir: fileConfig.backup?.directory || './uptime-kuma-backups',
+      syncMode: options.syncMode || fileConfig.sync?.mode || 'shallow',
       excludedFields: fileConfig.sync?.excludedFields || defaultExcludedFields()
     };
   }
@@ -558,6 +569,7 @@ function loadConfig(sourceName, targetName) {
     targetPassword: process.env.TARGET_UPTIME_PASS || '',
     targetName: process.env.TARGET_NAME || 'target',
     backupDir: process.env.BACKUP_DIR || './uptime-kuma-backups',
+    syncMode: options.syncMode || process.env.SYNC_MODE || 'shallow',
     excludedFields: defaultExcludedFields()
   };
 }
@@ -591,16 +603,30 @@ if (args.includes('--help') || args.includes('-h')) {
 Uptime Kuma Sync Tool
 
 Usage:
-  node uptime-kuma-sync.js <source-instance> <target-instance>
+  node uptime-kuma-sync.js <source-instance> <target-instance> [options]
   node uptime-kuma-sync.js [options]
 
 Options:
   -h, --help       Show this help message
   -l, --list       List available instances
+  --deep           Deep sync mode - copy ALL settings including intervals, timeouts, etc.
+  --shallow        Shallow sync mode (default) - preserve instance-specific settings
+
+Sync Modes:
+  Shallow (default): Syncs monitor names, types, URLs, and configuration while
+                     preserving instance-specific settings like check intervals,
+                     timeouts, and notification settings on the target.
+                     
+  Deep:              Copies ALL monitor settings from source to target, including
+                     intervals, timeouts, retry settings, and notifications.
+                     Use this to create an exact replica of the source instance.
 
 Examples:
-  # Using named instances from uptime-kuma-config.json:
+  # Shallow sync (preserves target's intervals & timeouts):
   node uptime-kuma-sync.js primary secondary
+  
+  # Deep sync (copies ALL settings including intervals):
+  node uptime-kuma-sync.js primary secondary --deep
   
   # Using environment variables:
   SOURCE_UPTIME_URL=... TARGET_UPTIME_URL=... node uptime-kuma-sync.js
@@ -608,6 +634,7 @@ Examples:
 Configuration:
   - Define instances in uptime-kuma-config.json
   - Or use environment variables (SOURCE_UPTIME_URL, etc.)
+  - Set default mode in config: {"sync": {"mode": "deep"}}
   - See uptime-kuma-config.json for example
 `);
   process.exit(0);
@@ -615,11 +642,21 @@ Configuration:
 
 // Only run if this file is executed directly (not required as a module)
 if (require.main === module) {
-  const sourceName = args[0];
-  const targetName = args[1];
+  // Parse sync mode from arguments
+  let syncMode = 'shallow'; // default
+  if (args.includes('--deep')) {
+    syncMode = 'deep';
+  } else if (args.includes('--shallow')) {
+    syncMode = 'shallow';
+  }
+  
+  // Filter out mode flags from args to get instance names
+  const instanceArgs = args.filter(arg => !arg.startsWith('--') && !arg.startsWith('-'));
+  const sourceName = instanceArgs[0];
+  const targetName = instanceArgs[1];
 
   // Configuration
-  const config = loadConfig(sourceName, targetName);
+  const config = loadConfig(sourceName, targetName, { syncMode });
 
   // Show warning if using default values
   if (!sourceName && !process.env.SOURCE_UPTIME_URL) {

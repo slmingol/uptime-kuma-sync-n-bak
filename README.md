@@ -10,7 +10,8 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 
 - ✅ Syncs monitors (HTTP, TCP, Ping, etc.)
 - ✅ Syncs groups/tags with color coding
-- ✅ Preserves instance-specific settings (intervals, timeouts, TTLs)
+- ✅ **Shallow & Deep Sync Modes** - Choose to preserve or copy instance-specific settings
+- ✅ Preserves instance-specific settings (intervals, timeouts, TTLs) in shallow mode
 - ✅ Updates existing monitors or creates new ones
 - ✅ Maps tags/groups correctly between instances
 - ✅ **Named instance configuration** - Reference instances by name
@@ -117,8 +118,11 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 # Backup an instance
 ./uptime-kuma-docker.sh backup primary
 
-# Sync between instances
+# Sync between instances (shallow mode - default)
 ./uptime-kuma-docker.sh sync primary secondary
+
+# Deep sync (copy all settings)
+./uptime-kuma-docker.sh sync primary secondary --deep
 
 # Restore from backup
 ./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
@@ -127,14 +131,15 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 ### Docker Commands Reference
 
 ```bash
-./uptime-kuma-docker.sh list                              # List configured instances
-./uptime-kuma-docker.sh backup <instance>                 # Backup an instance
-./uptime-kuma-docker.sh sync <source> <target>            # Sync instances
-./uptime-kuma-docker.sh diff <source> <target>            # Compare instances
-./uptime-kuma-docker.sh restore <backup-file> [instance]  # Restore from backup
-./uptime-kuma-docker.sh build                             # Build the image
-./uptime-kuma-docker.sh shell                             # Interactive shell
-./uptime-kuma-docker.sh help                              # Show help
+./uptime-kuma-docker.sh list                                    # List configured instances
+./uptime-kuma-docker.sh backup <instance>                       # Backup an instance
+./uptime-kuma-docker.sh sync <source> <target>                  # Sync instances (shallow)
+./uptime-kuma-docker.sh sync <source> <target> --deep           # Sync with all settings
+./uptime-kuma-docker.sh diff <source> <target>                  # Compare instances
+./uptime-kuma-docker.sh restore <backup-file> [instance]        # Restore from backup
+./uptime-kuma-docker.sh build                                   # Build the image
+./uptime-kuma-docker.sh shell                                   # Interactive shell
+./uptime-kuma-docker.sh help                                    # Show help
 ```
 
 ### Docker Compose (For Scheduled Backups)
@@ -234,6 +239,95 @@ TARGET_UPTIME_USER=admin \
 TARGET_UPTIME_PASS=password2 \
 TARGET_NAME=secondary \
 node uptime-kuma-sync.js
+```
+
+## Sync Modes
+
+The sync tool supports two modes to fit different use cases:
+
+### Shallow Sync (Default)
+
+**Best for:** Maintaining independent instances with different monitoring configurations
+
+Shallow sync copies monitor definitions while preserving instance-specific settings on the target:
+
+```bash
+# Shallow sync - preserves target's check intervals and timeouts
+./sync-uptime.sh primary secondary
+node uptime-kuma-sync.js primary secondary
+```
+
+**What gets synced:**
+- Monitor names and types
+- URLs, hostnames, and ports  
+- Descriptions and keywords
+- Tags/groups (with colors)
+- Headers, body, method
+- Authentication settings
+- Certificate settings
+
+**What is preserved** on the target:
+- Check intervals
+- Retry intervals
+- Timeout values
+- Max retries
+- Notification settings
+- DNS settings
+- Accepted status codes
+
+**Use cases:**
+- Syncing monitors to a backup instance with different check frequencies
+- Maintaining a test environment with slower polling
+- Keeping notification settings separate per instance
+
+### Deep Sync
+
+**Best for:** Creating exact replicas or clones
+
+Deep sync copies **everything** from source to target, including all instance-specific settings:
+
+```bash
+# Deep sync - copies ALL settings including intervals
+./sync-uptime.sh primary secondary --deep
+node uptime-kuma-sync.js primary secondary --deep
+```
+
+**What gets synced:**
+- Everything from shallow mode PLUS:
+- Check intervals
+- Retry intervals  
+- Timeout values
+- Max retries
+- Notification settings
+- DNS settings
+- Accepted status codes
+- All other configuration fields
+
+**Use cases:**
+- Creating an exact replica/clone of an instance
+- Disaster recovery setup
+- Migrating to a new instance
+- Setting up identical production/staging environments
+
+### Setting Default Mode
+
+You can set the default mode in your config file:
+
+```json
+{
+  "sync": {
+    "mode": "deep"
+  }
+}
+```
+
+Override the default with command-line flags:
+```bash
+# Force shallow sync even if config says deep
+./sync-uptime.sh primary secondary --shallow
+
+# Force deep sync even if config says shallow  
+./sync-uptime.sh primary secondary --deep
 ```
 
 ### Manual Backup
@@ -438,6 +532,7 @@ Define all your instances in one place:
     "directory": "./uptime-kuma-backups"
   },
   "sync": {
+    "mode": "shallow",
     "excludedFields": [
       "interval",
       "retryInterval",
@@ -454,6 +549,11 @@ Define all your instances in one place:
   }
 }
 ```
+
+**Sync Mode:**
+- `"mode": "shallow"` (default) - Preserves instance-specific settings on target
+- `"mode": "deep"` - Copies all settings for an exact replica
+- Can be overridden with `--deep` or `--shallow` flags
 
 **Benefits:**
 - Define once, use everywhere
@@ -478,7 +578,9 @@ These names appear in:
 
 ## What Gets Synced
 
-### Synced Fields
+> **Note:** The fields below apply to **Shallow Sync mode** (default). For **Deep Sync mode**, ALL fields are copied including instance-specific settings. See the [Sync Modes](#sync-modes) section for details.
+
+### Synced Fields (Shallow Mode)
 - Monitor name
 - Monitor type (HTTP, TCP, Ping, etc.)
 - URL/hostname
@@ -492,7 +594,7 @@ These names appear in:
 - Certificate settings
 - Keywords
 
-### NOT Synced (Instance-Specific)
+### NOT Synced in Shallow Mode (Instance-Specific)
 - Check interval
 - Retry interval  
 - Resend interval
@@ -503,6 +605,8 @@ These names appear in:
 - Accepted status codes
 - DNS settings
 - Notification settings
+
+**In Deep Sync Mode:** All the above instance-specific fields ARE synced for an exact replica.
 
 ## Customization
 
