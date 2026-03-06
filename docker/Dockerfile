@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY ../package*.json ./
 
 # Install dependencies
 RUN npm ci --only=production
@@ -26,8 +26,8 @@ RUN npm ci --only=production
 RUN echo "${VERSION}" > /app/VERSION
 
 # Copy application files
-COPY src/ ./src/
-COPY scripts/ ./scripts/
+COPY ../src/ ./src/
+COPY ../scripts/ ./scripts/
 
 # Make shell scripts executable
 RUN chmod +x scripts/*.sh
