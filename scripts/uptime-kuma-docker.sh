@@ -31,6 +31,7 @@ mkdir -p ./uptime-kuma-backups
 # Function to run a command in the container
 run_command() {
   $CONTAINER_CMD run --rm \
+    --network=host \
     -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
     -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
     "$IMAGE_NAME" "$@"
@@ -95,6 +96,7 @@ case "$1" in
   shell)
     echo "Starting interactive shell in container..."
     $CONTAINER_CMD run --rm -it \
+      --network=host \
       -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
       -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
       --entrypoint /bin/sh \
