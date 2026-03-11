@@ -45,7 +45,10 @@ class UptimeKumaSync {
     return new Promise((resolve, reject) => {
       const socket = io(url, {
         transports: ['websocket'],
-        reconnection: false
+        reconnection: true,
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1000,
+        timeout: 10000
       });
 
       socket.on('connect', () => {
