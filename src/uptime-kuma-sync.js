@@ -181,7 +181,7 @@ class UptimeKumaSync {
     const cleaned = { ...monitor };
     
     // Array fields that should be reset to empty arrays instead of deleted
-    const arrayFields = ['notificationIDList', 'accepted_statuscodes'];
+    const arrayFields = ['accepted_statuscodes'];  // notificationIDList is actually an object, not an array
     
     // In shallow mode, remove excluded fields to preserve target's instance-specific settings
     // In deep mode, keep all fields - we want an exact copy
@@ -199,17 +199,20 @@ class UptimeKumaSync {
           delete cleaned[field];
         }
       });
-      
-      // Ensure notificationIDList exists as empty array if not already set
-      if (cleaned.notificationIDList === undefined || cleaned.notificationIDList === null) {
-        cleaned.notificationIDList = [];
-      }
     }
     
-    // Always ensure accepted_statuscodes exists with sensible default if not already set
-    // (applies to both modes)
+    // Always ensure critical fields exist with proper defaults (applies to both modes)
+    if (cleaned.notificationIDList === undefined || cleaned.notificationIDList === null) {
+      cleaned.notificationIDList = {};  // Must be object, not array
+    }
     if (cleaned.accepted_statuscodes === undefined || cleaned.accepted_statuscodes === null) {
       cleaned.accepted_statuscodes = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
+    }
+    if (cleaned.conditions === undefined || cleaned.conditions === null) {
+      cleaned.conditions = [];  // Must be array
+    }
+    if (cleaned.tags === undefined || cleaned.tags === null) {
+      cleaned.tags = [];  // Must be array
     }
     
     // Remove internal fields
@@ -224,13 +227,15 @@ class UptimeKumaSync {
     
     // Remove auto-generated/computed fields
     delete cleaned.path;
-    delete cleaned.path_name;
+    delete cleaned.pathName;  // camelCase variant
+    delete cleaned.path_name;  // snake_case variant
     
     // Remove malformed fields (bugs in Uptime Kuma)
     // Try multiple possible variations - be aggressive here
     delete cleaned.children_i_ds;
     delete cleaned.children_ids;
     delete cleaned.childrenIds;
+    delete cleaned.childrenIDs;  // Actual field name used by Uptime Kuma
     delete cleaned.children;
     
     // Remove any fields that are undefined or cause SQL errors
@@ -419,11 +424,11 @@ class UptimeKumaSync {
               name: cleanedMonitor.name,
               type: cleanedMonitor.type,
               active: true,
-              // Required array fields - use values from cleaned monitor
-              notificationIDList: [],
+              // Required fields
+              notificationIDList: {},  // Object, not array!
               accepted_statuscodes: cleanedMonitor.accepted_statuscodes || ['200-299'],
-              // Required NOT NULL field
-              conditions: cleanedMonitor.conditions || {}
+              // Required NOT NULL field (array)
+              conditions: cleanedMonitor.conditions || []  // Array, not object!
             };
             
             // Add type-specific required fields

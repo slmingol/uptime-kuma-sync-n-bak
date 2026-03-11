@@ -40,7 +40,7 @@ run_command() {
 case "$1" in
   list|--list|-l)
     echo "Listing available instances..."
-    run_command node uptime-kuma-backup.js --list
+    run_command node src/uptime-kuma-backup.js --list
     ;;
   
   backup)
@@ -49,7 +49,7 @@ case "$1" in
       exit 1
     fi
     echo "Backing up instance: $2"
-    run_command node uptime-kuma-backup.js "$2"
+    run_command node src/uptime-kuma-backup.js "$2"
     ;;
   
   sync)
@@ -58,7 +58,7 @@ case "$1" in
       exit 1
     fi
     echo "Syncing from $2 to $3..."
-    run_command node uptime-kuma-sync.js "$2" "$3"
+    run_command node src/uptime-kuma-sync.js "$2" "$3"
     ;;
   
   diff)
@@ -81,9 +81,9 @@ case "$1" in
     fi
     echo "Restoring from backup: $2"
     if [ -n "$3" ]; then
-      run_command node uptime-kuma-restore.js "$2" "$3"
+      run_command node src/uptime-kuma-restore.js "$2" "$3"
     else
-      run_command node uptime-kuma-restore.js "$2"
+      run_command node src/uptime-kuma-restore.js "$2"
     fi
     ;;
   
