@@ -6,9 +6,9 @@
 
 [![Build and Push Container](https://github.com/slmingol/uptime-kuma-sync-n-bak/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/slmingol/uptime-kuma-sync-n-bak/actions/workflows/build-and-push.yml)
 [![Version](https://img.shields.io/github/v/release/slmingol/uptime-kuma-sync-n-bak)](https://github.com/slmingol/uptime-kuma-sync-n-bak/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/slmingol/uptime-kuma-sync-n-bak/blob/main/docs/LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker)](docker/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker)](https://github.com/slmingol/uptime-kuma-sync-n-bak/tree/main/docker)
 [![Container Registry](https://img.shields.io/badge/ghcr.io-uptime--kuma--sync--n--bak-blue?logo=docker)](https://github.com/slmingol/uptime-kuma-sync-n-bak/pkgs/container/uptime-kuma-sync-n-bak)
 [![Uptime Kuma](https://img.shields.io/badge/Uptime%20Kuma-Compatible-5CDD8B)](https://github.com/louislam/uptime-kuma)
 
