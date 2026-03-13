@@ -95,7 +95,7 @@ docker run --rm \
   -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
   -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
   ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest \
-  node uptime-kuma-backup.js --list
+  node src/uptime-kuma-backup.js --list
 ```
 
 ### Building Locally
@@ -103,7 +103,7 @@ docker run --rm \
 1. Build the Docker image:
 
 ```bash
-./uptime-kuma-docker.sh build
+./scripts/uptime-kuma-docker.sh build
 ```
 
 2. Create your config file:
@@ -117,33 +117,33 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 
 ```bash
 # List available instances
-./uptime-kuma-docker.sh list
+./scripts/uptime-kuma-docker.sh list
 
 # Backup an instance
-./uptime-kuma-docker.sh backup primary
+./scripts/uptime-kuma-docker.sh backup primary
 
 # Sync between instances (shallow mode - default)
-./uptime-kuma-docker.sh sync primary secondary
+./scripts/uptime-kuma-docker.sh sync primary secondary
 
 # Deep sync (copy all settings)
-./uptime-kuma-docker.sh sync primary secondary --deep
+./scripts/uptime-kuma-docker.sh sync primary secondary --deep
 
 # Restore from backup
-./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
+./scripts/uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
 ```
 
 ### Docker Commands Reference
 
 ```bash
-./uptime-kuma-docker.sh list                                    # List configured instances
-./uptime-kuma-docker.sh backup <instance>                       # Backup an instance
-./uptime-kuma-docker.sh sync <source> <target>                  # Sync instances (shallow)
-./uptime-kuma-docker.sh sync <source> <target> --deep           # Sync with all settings
-./uptime-kuma-docker.sh diff <source> <target>                  # Compare instances
-./uptime-kuma-docker.sh restore <backup-file> [instance]        # Restore from backup
-./uptime-kuma-docker.sh build                                   # Build the image
-./uptime-kuma-docker.sh shell                                   # Interactive shell
-./uptime-kuma-docker.sh help                                    # Show help
+./scripts/uptime-kuma-docker.sh list                                    # List configured instances
+./scripts/uptime-kuma-docker.sh backup <instance>                       # Backup an instance
+./scripts/uptime-kuma-docker.sh sync <source> <target>                  # Sync instances (shallow)
+./scripts/uptime-kuma-docker.sh sync <source> <target> --deep           # Sync with all settings
+./scripts/uptime-kuma-docker.sh diff <source> <target>                  # Compare instances
+./scripts/uptime-kuma-docker.sh restore <backup-file> [instance]        # Restore from backup
+./scripts/uptime-kuma-docker.sh build                                   # Build the image
+./scripts/uptime-kuma-docker.sh shell                                   # Interactive shell
+./scripts/uptime-kuma-docker.sh help                                    # Show help
 ```
 
 ### Docker Compose (For Scheduled Backups)
@@ -161,16 +161,16 @@ To run one-off commands with docker-compose:
 
 ```bash
 # Backup
-docker-compose run --rm uptime-kuma-sync node uptime-kuma-backup.js primary
+docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-backup.js primary
 
 # Sync
-docker-compose run --rm uptime-kuma-sync node uptime-kuma-sync.js primary secondary
+docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-sync.js primary secondary
 
 # Diff
-docker-compose run --rm uptime-kuma-sync node uptime-kuma-diff.js primary secondary
+docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-diff.js primary secondary
 
 # List instances
-docker-compose run --rm uptime-kuma-sync node uptime-kuma-backup.js --list
+docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-backup.js --list
 ```
 
 ### Manual Docker Run
@@ -185,13 +185,13 @@ docker build -t uptime-kuma-sync:latest .
 docker run --rm \
   -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
   -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
-  uptime-kuma-sync:latest node uptime-kuma-backup.js primary
+  uptime-kuma-sync:latest node src/uptime-kuma-backup.js primary
 
 # Run sync
 docker run --rm \
   -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
   -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
-  uptime-kuma-sync:latest node uptime-kuma-sync.js primary secondary
+  uptime-kuma-sync:latest node src/uptime-kuma-sync.js primary secondary
 ```
 
 ## Usage
@@ -202,10 +202,10 @@ The easiest way to sync - just reference your instances by name:
 
 ```bash
 # Sync from primary to secondary
-./sync-uptime.sh primary secondary
+./scripts/sync-uptime.sh primary secondary
 
 # Or run directly:
-node uptime-kuma-sync.js primary secondary
+node src/uptime-kuma-sync.js primary secondary
 ```
 
 Output example:
@@ -228,7 +228,7 @@ Backups are automatically named based on the instance name!
 Using .env file:
 
 ```bash
-./sync-uptime.sh
+./scripts/sync-uptime.sh
 ```
 
 Or use environment variables directly:
@@ -242,7 +242,7 @@ TARGET_UPTIME_URL=http://localhost:3002 \
 TARGET_UPTIME_USER=admin \
 TARGET_UPTIME_PASS=password2 \
 TARGET_NAME=secondary \
-node uptime-kuma-sync.js
+node src/uptime-kuma-sync.js
 ```
 
 ## Sync Modes
@@ -257,8 +257,8 @@ Shallow sync copies monitor definitions while preserving instance-specific setti
 
 ```bash
 # Shallow sync - preserves target's check intervals and timeouts
-./sync-uptime.sh primary secondary
-node uptime-kuma-sync.js primary secondary
+./scripts/sync-uptime.sh primary secondary
+node src/uptime-kuma-sync.js primary secondary
 ```
 
 **What gets synced:**
@@ -292,8 +292,8 @@ Deep sync copies **everything** from source to target, including all instance-sp
 
 ```bash
 # Deep sync - copies ALL settings including intervals
-./sync-uptime.sh primary secondary --deep
-node uptime-kuma-sync.js primary secondary --deep
+./scripts/sync-uptime.sh primary secondary --deep
+node src/uptime-kuma-sync.js primary secondary --deep
 ```
 
 **What gets synced:**
@@ -328,10 +328,10 @@ You can set the default mode in your config file:
 Override the default with command-line flags:
 ```bash
 # Force shallow sync even if config says deep
-./sync-uptime.sh primary secondary --shallow
+./scripts/sync-uptime.sh primary secondary --shallow
 
 # Force deep sync even if config says shallow  
-./sync-uptime.sh primary secondary --deep
+./scripts/sync-uptime.sh primary secondary --deep
 ```
 
 ### Manual Backup
@@ -340,7 +340,7 @@ Backup any instance by name:
 
 ```bash
 # Backup named instance from config
-node uptime-kuma-backup.js primary
+node src/uptime-kuma-backup.js primary
 
 # Creates: uptime-kuma-backups/primary-2026-03-01T15-30-00.json
 ```
@@ -351,7 +351,7 @@ Or with environment variables:
 UPTIME_URL=https://uptime.example.com \
 UPTIME_USER=admin \
 UPTIME_PASS=password \
-node uptime-kuma-backup.js production
+node src/uptime-kuma-backup.js production
 ```
 
 ### Restore from Backup
@@ -359,7 +359,7 @@ node uptime-kuma-backup.js production
 Restore to a named instance:
 
 ```bash
-node uptime-kuma-restore.js uptime-kuma-backups/primary-2026-03-01.json secondary
+node src/uptime-kuma-restore.js uptime-kuma-backups/primary-2026-03-01.json secondary
 ```
 
 Or with environment variables:
@@ -368,7 +368,7 @@ Or with environment variables:
 TARGET_UPTIME_URL=https://uptime.example.com \
 TARGET_UPTIME_USER=admin \
 TARGET_UPTIME_PASS=password \
-node uptime-kuma-restore.js uptime-kuma-backups/backup.json
+node src/uptime-kuma-restore.js uptime-kuma-backups/backup.json
 ```
 
 **Note:** Restoring will ADD monitors from the backup. It won't delete existing monitors.
@@ -379,17 +379,17 @@ Compare monitors between two instances to see what's different:
 
 ```bash
 # Using bash wrapper
-./diff-uptime.sh primary secondary
+./scripts/diff-uptime.sh primary secondary
 
 # Or run directly
-node uptime-kuma-diff.js primary secondary
+node src/uptime-kuma-diff.js primary secondary
 
 # Or with npm
 npm run diff primary secondary
 
 # Show condensed summary (TL;DR mode)
-./diff-uptime.sh primary secondary --tldr
-node uptime-kuma-diff.js primary secondary --tldr
+./scripts/diff-uptime.sh primary secondary --tldr
+node src/uptime-kuma-diff.js primary secondary --tldr
 ```
 
 The diff tool shows:
@@ -437,12 +437,12 @@ See [README.diff.md](README.diff.md) for detailed documentation.
 **Docker Usage:**
 ```bash
 # Using docker-compose
-docker-compose run --rm uptime-kuma-sync ./diff-uptime.sh primary secondary
-docker-compose run --rm uptime-kuma-sync ./diff-uptime.sh primary secondary --tldr
+docker-compose run --rm uptime-kuma-sync ./scripts/diff-uptime.sh primary secondary
+docker-compose run --rm uptime-kuma-sync ./scripts/diff-uptime.sh primary secondary --tldr
 
 # Using Docker wrapper script
-./uptime-kuma-docker.sh diff primary secondary
-./uptime-kuma-docker.sh diff primary secondary --tldr
+./scripts/uptime-kuma-docker.sh diff primary secondary
+./scripts/uptime-kuma-docker.sh diff primary secondary --tldr
 ```
 
 ### Using Diff to Determine Sync Direction
@@ -458,8 +458,8 @@ The sync tool is **bi-directional** and **safe** - you can sync in either direct
 
 ```bash
 # 1. Compare both directions to see what's different
-./diff-uptime.sh primary secondary --tldr
-./diff-uptime.sh secondary primary --tldr
+./scripts/diff-uptime.sh primary secondary --tldr
+./scripts/diff-uptime.sh secondary primary --tldr
 
 # 2. Identify your "source of truth" (the instance with correct data)
 #    - Which has the correct tags/groups?
@@ -467,10 +467,10 @@ The sync tool is **bi-directional** and **safe** - you can sync in either direct
 #    - Which has the latest changes you want to keep?
 
 # 3. Sync FROM your source of truth TO the other instance
-./sync-uptime.sh <correct-instance> <target-instance>
+./scripts/sync-uptime.sh <correct-instance> <target-instance>
 
 # 4. Verify instances are now in sync
-./diff-uptime.sh primary secondary --tldr
+./scripts/diff-uptime.sh primary secondary --tldr
 ```
 
 **Example Scenario:**
@@ -478,18 +478,18 @@ The sync tool is **bi-directional** and **safe** - you can sync in either direct
 Your diff shows secondary has 1 extra monitor and different tags on 31 monitors:
 ```bash
 # Check what secondary would change in primary
-./diff-uptime.sh secondary primary --tldr
+./scripts/diff-uptime.sh secondary primary --tldr
 
 # If secondary has the correct tags, sync it to primary
-./sync-uptime.sh secondary primary
+./scripts/sync-uptime.sh secondary primary
 
 # Or if primary is correct, sync the other direction
-./sync-uptime.sh primary secondary
+./scripts/sync-uptime.sh primary secondary
 ```
 
 **Backup Location:** The tool creates timestamped backups in `uptime-kuma-backups/` before each sync. You can restore if needed:
 ```bash
-./restore-uptime.sh uptime-kuma-backups/primary-2026-03-01T15-30-00.json primary
+./scripts/restore-uptime.sh uptime-kuma-backups/primary-2026-03-01T15-30-00.json primary
 ```
 
 ### Automated Sync
@@ -498,10 +498,10 @@ Set up a cron job to run periodically:
 
 ```bash
 # Run every hour - sync from primary to secondary
-0 * * * * cd /path/to/project && ./sync-uptime.sh primary secondary >> /var/log/uptime-sync.log 2>&1
+0 * * * * cd /path/to/project && ./scripts/sync-uptime.sh primary secondary >> /var/log/uptime-sync.log 2>&1
 
 # Daily backup of production instance
-0 2 * * * cd /path/to/project && node uptime-kuma-backup.js production >> /var/log/uptime-backup.log 2>&1
+0 2 * * * cd /path/to/project && node src/uptime-kuma-backup.js production >> /var/log/uptime-backup.log 2>&1
 ```
 
 ## Configuration Files
@@ -689,14 +689,14 @@ If a sync goes wrong, restore from the automatic backup:
 ls -lt uptime-kuma-backups/
 
 # Restore to the named instance
-node uptime-kuma-restore.js uptime-kuma-backups/secondary-2026-03-01T15-30-00.json secondary
+node src/uptime-kuma-restore.js uptime-kuma-backups/secondary-2026-03-01T15-30-00.json secondary
 ```
 
 ## Workflow
 
 1. **Initial Setup**: Configure both instances with their desired intervals, timeouts, and notification settings
 2. **Add Monitors**: Add monitors to your "source" instance with appropriate tags/groups
-3. **Run Sync**: Execute sync with instance names: `./sync-uptime.sh primary secondary`
+3. **Run Sync**: Execute sync with instance names: `./scripts/sync-uptime.sh primary secondary`
 4. **Verify**: Check target instance - monitors should be there with target's existing timing settings
 5. **Regular Syncs**: Schedule periodic syncs to keep monitors in sync
 
@@ -742,10 +742,10 @@ To keep both instances in sync:
 Example:
 ```bash
 # Sync A → B every even hour
-0 */2 * * * cd /path/to/project && ./sync-uptime.sh primary secondary
+0 */2 * * * cd /path/to/project && ./scripts/sync-uptime.sh primary secondary
 
 # Sync B → A every odd hour  
-0 1-23/2 * * * cd /path/to/project && ./sync-uptime.sh secondary primary
+0 1-23/2 * * * cd /path/to/project && ./scripts/sync-uptime.sh secondary primary
 ```
 
 ## Scripts Overview
