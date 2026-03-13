@@ -1,6 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
-  <rect width="400" height="120" fill="transparent"/>
+  <rect width="400" height="120" fill="#ffffff"/>
   
   <!-- Left Monitor/Instance -->
   <g id="left-instance">
@@ -48,6 +49,6 @@
   
   <!-- Title Text -->
   <text x="20" y="108" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#5CDD8B">
-    Uptime Kuma Sync & Backup
+    Uptime Kuma Sync &amp; Backup
   </text>
 </svg>
