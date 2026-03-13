@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/logo.svg" alt="Uptime Kuma Sync & Backup" width="400">
+</div>
+
 # Uptime Kuma Sync Tool
 
 [![Build and Push Container](https://github.com/slmingol/uptime-kuma-sync-n-bak/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/slmingol/uptime-kuma-sync-n-bak/actions/workflows/build-and-push.yml)

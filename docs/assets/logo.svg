@@ -1,0 +1,53 @@
+<svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="120" fill="transparent"/>
+  
+  <!-- Left Monitor/Instance -->
+  <g id="left-instance">
+    <rect x="20" y="35" width="70" height="50" rx="4" fill="#5CDD8B" opacity="0.2" stroke="#5CDD8B" stroke-width="2"/>
+    <circle cx="55" cy="60" r="12" fill="#5CDD8B"/>
+    <path d="M 50 60 L 53 63 L 60 54" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  
+  <!-- Sync Arrows -->
+  <g id="sync-arrows">
+    <!-- Right arrow -->
+    <path d="M 105 50 L 145 50" stroke="#5CDD8B" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 145 50 L 138 44 M 145 50 L 138 56" stroke="#5CDD8B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Left arrow -->
+    <path d="M 145 70 L 105 70" stroke="#5CDD8B" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 105 70 L 112 64 M 105 70 L 112 76" stroke="#5CDD8B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Sync circle -->
+    <circle cx="125" cy="60" r="8" fill="none" stroke="#5CDD8B" stroke-width="2"/>
+    <path d="M 125 52 L 125 60 L 130 60" stroke="#5CDD8B" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Right Monitor/Instance -->
+  <g id="right-instance">
+    <rect x="160" y="35" width="70" height="50" rx="4" fill="#5CDD8B" opacity="0.2" stroke="#5CDD8B" stroke-width="2"/>
+    <circle cx="195" cy="60" r="12" fill="#5CDD8B"/>
+    <path d="M 190 60 L 193 63 L 200 54" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  
+  <!-- Backup/Save Icon -->
+  <g id="backup-icon">
+    <rect x="255" y="40" width="40" height="40" rx="3" fill="none" stroke="#5CDD8B" stroke-width="2"/>
+    <path d="M 267 55 L 275 47 L 283 55" stroke="#5CDD8B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <line x1="275" y1="48" x2="275" y2="68" stroke="#5CDD8B" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="262" y1="73" x2="288" y2="73" stroke="#5CDD8B" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Heartbeat Line -->
+  <g id="heartbeat">
+    <path d="M 310 60 L 320 60 L 323 50 L 326 70 L 329 60 L 339 60" 
+          stroke="#5CDD8B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="324.5" cy="60" r="2" fill="#5CDD8B"/>
+  </g>
+  
+  <!-- Title Text -->
+  <text x="20" y="108" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#5CDD8B">
+    Uptime Kuma Sync & Backup
+  </text>
+</svg>
