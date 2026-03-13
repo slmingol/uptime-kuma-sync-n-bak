@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/slmingol/uptime-kuma-sync-n-bak/main/assets/logo.svg" alt="Uptime Kuma Sync & Backup" width="400">
+  <img src="https://raw.githubusercontent.com/slmingol/uptime-kuma-sync-n-bak/main/assets/logo.svg?v=2" alt="Uptime Kuma Sync & Backup" width="400">
 </div>
 
 # Uptime Kuma Sync Tool
