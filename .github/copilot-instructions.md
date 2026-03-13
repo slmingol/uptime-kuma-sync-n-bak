@@ -46,11 +46,11 @@ npm run diff -- --help
 ### Docker Build & Validation
 ```bash
 # Build from project root (docker/Dockerfile references ../src and ../scripts)
-docker build -f docker/Dockerfile -t uptime-kuma-sync:test .
+podman build -f docker/Dockerfile -t uptime-kuma-sync:test .
 
 # Test the docker image works
-docker run --rm uptime-kuma-sync:test node src/uptime-kuma-sync.js --help
-docker run --rm uptime-kuma-sync:test node src/uptime-kuma-backup.js --help
+podman run --rm uptime-kuma-sync:test node src/uptime-kuma-sync.js --help
+podman run --rm uptime-kuma-sync:test node src/uptime-kuma-backup.js --help
 ```
 
 **Common Docker Error**: If build fails with "cannot find package.json", ensure you're running from repository root and Dockerfile uses `COPY ../` paths correctly.
@@ -199,13 +199,13 @@ npm version major   # 1.0.0 → 2.0.0
 # This automatically updates VERSION file via postversion script
 ```
 
-### Docker Development
+### Podman Development
 ```bash
 # Build locally
-docker build -f docker/Dockerfile -t uptime-kuma-sync:local .
+podman build -f docker/Dockerfile -t uptime-kuma-sync:local .
 
 # Run with config
-docker run --rm \
+podman run --rm \
   -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
   -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
   uptime-kuma-sync:local node src/uptime-kuma-sync.js primary secondary
