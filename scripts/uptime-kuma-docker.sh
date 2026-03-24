@@ -94,7 +94,7 @@ case "$1" in
   
   build)
     echo "Building $CONTAINER_CMD image..."
-    $CONTAINER_CMD build -t "$IMAGE_NAME" .
+    $CONTAINER_CMD build -f docker/Dockerfile -t "$IMAGE_NAME" .
     ;;
   
   shell)
