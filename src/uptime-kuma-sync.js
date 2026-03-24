@@ -450,6 +450,9 @@ class UptimeKumaSync {
             console.log(`Updating: ${cleanedMonitor.name}`);
             cleanedMonitor.id = matchingTarget.id;
             
+            // Fetch full target monitor details to get complete tag list
+            const fullTargetMonitor = await this.getMonitor(targetSocket, matchingTarget.id);
+            
             // Extract and map tags - we'll sync them separately via addMonitorTag API
             const monitorTags = [];
             if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
@@ -468,8 +471,8 @@ class UptimeKumaSync {
             await this.updateMonitor(targetSocket, cleanedMonitor);
             
             // Remove existing tags first to avoid duplicates
-            if (matchingTarget.tags && Array.isArray(matchingTarget.tags)) {
-              for (const existingTag of matchingTarget.tags) {
+            if (fullTargetMonitor.tags && Array.isArray(fullTargetMonitor.tags)) {
+              for (const existingTag of fullTargetMonitor.tags) {
                 try {
                   await this.deleteMonitorTag(targetSocket, existingTag.tag_id, matchingTarget.id, existingTag.value || '');
                 } catch (err) {
