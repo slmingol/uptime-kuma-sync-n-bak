@@ -455,16 +455,19 @@ class UptimeKumaSync {
             
             // STEP 1: Remove ALL existing tags first to avoid duplicates
             if (fullTargetMonitor.tags && Array.isArray(fullTargetMonitor.tags)) {
+              console.log(`  Removing ${fullTargetMonitor.tags.length} existing tags from ${cleanedMonitor.name}...`);
               for (const existingTag of fullTargetMonitor.tags) {
                 try {
+                  console.log(`    - Deleting tag: ${existingTag.name || existingTag.tag_id} (value: ${existingTag.value || 'none'})`);
                   await this.deleteMonitorTag(targetSocket, existingTag.tag_id, matchingTarget.id, existingTag.value || '');
+                  console.log(`      ✓ Deleted successfully`);
                 } catch (err) {
                   // Ignore errors - tag might not exist or already deleted
-                  if (!err.message.includes('does not exist')) {
-                    console.warn(`Warning: Could not delete existing tag ${existingTag.tag_id} from monitor ${cleanedMonitor.name}: ${err.message}`);
-                  }
+                  console.warn(`      ✗ Could not delete tag: ${err.message}`);
                 }
               }
+            } else {
+              console.log(`  No existing tags to remove`);
             }
             
             // Extract and map tags - we'll sync them separately via addMonitorTag API
@@ -486,13 +489,18 @@ class UptimeKumaSync {
             
             // STEP 3: Add tags from source using dedicated addMonitorTag API
             if (monitorTags.length > 0) {
+              console.log(`  Adding ${monitorTags.length} tags from source...`);
               for (const tag of monitorTags) {
                 try {
+                  console.log(`    + Adding tag: ${tag.tag_id} (value: ${tag.value || 'none'})`);
                   await this.addMonitorTag(targetSocket, tag.tag_id, matchingTarget.id, tag.value);
+                  console.log(`      ✓ Added successfully`);
                 } catch (err) {
-                  console.warn(`Warning: Could not add tag ${tag.tag_id} to monitor ${cleanedMonitor.name}: ${err.message}`);
+                  console.warn(`      ✗ Could not add tag: ${err.message}`);
                 }
               }
+            } else {
+              console.log(`  No tags to add from source`);
             }
             
             // Store ID mapping
