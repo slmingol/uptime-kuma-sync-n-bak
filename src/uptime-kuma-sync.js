@@ -140,6 +140,36 @@ class UptimeKumaSync {
   }
 
   /**
+   * Add a tag to a monitor
+   */
+  async addMonitorTag(socket, tagID, monitorID, value = '') {
+    return new Promise((resolve, reject) => {
+      socket.emit('addMonitorTag', tagID, monitorID, value, (res) => {
+        if (res.ok) {
+          resolve(res);
+        } else {
+          reject(new Error(`Failed to add tag to monitor: ${res.msg}`));
+        }
+      });
+    });
+  }
+
+  /**
+   * Remove a tag from a monitor
+   */
+  async deleteMonitorTag(socket, tagID, monitorID, value = '') {
+    return new Promise((resolve, reject) => {
+      socket.emit('deleteMonitorTag', tagID, monitorID, value, (res) => {
+        if (res.ok) {
+          resolve(res);
+        } else {
+          reject(new Error(`Failed to delete tag from monitor: ${res.msg}`));
+        }
+      });
+    });
+  }
+
+  /**
    * Add or update a monitor
    */
   async saveMonitor(socket, monitor) {
@@ -420,18 +450,45 @@ class UptimeKumaSync {
             console.log(`Updating: ${cleanedMonitor.name}`);
             cleanedMonitor.id = matchingTarget.id;
             
-            // Map tags - must be done AFTER we have the target monitor ID
-            // NOTE: editMonitor API does not reliably persist tags, but we include them
-            // in case future Uptime Kuma versions support it
+            // Extract and map tags - we'll sync them separately via addMonitorTag API
+            const monitorTags = [];
             if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
-              cleanedMonitor.tags = cleanedMonitor.tags.map(tag => ({
-                tag_id: tagMapping[tag.tag_id] || tag.tag_id,
-                name: tag.name,
-                color: tag.color,
-                value: tag.value || ''
-              }));
+              for (const tag of cleanedMonitor.tags) {
+                monitorTags.push({
+                  tag_id: tagMapping[tag.tag_id] || tag.tag_id,
+                  value: tag.value || ''
+                });
+              }
             }
+            
+            // Remove tags from monitor object - editMonitor doesn't handle them
+            delete cleanedMonitor.tags;
+            
+            // Update the monitor
             await this.updateMonitor(targetSocket, cleanedMonitor);
+            
+            // Remove existing tags first to avoid duplicates
+            if (matchingTarget.tags && Array.isArray(matchingTarget.tags)) {
+              for (const existingTag of matchingTarget.tags) {
+                try {
+                  await this.deleteMonitorTag(targetSocket, existingTag.tag_id, matchingTarget.id, existingTag.value || '');
+                } catch (err) {
+                  // Ignore errors - tag might not exist or already deleted
+                  console.warn(`Warning: Could not delete existing tag ${existingTag.tag_id} from monitor ${cleanedMonitor.name}: ${err.message}`);
+                }
+              }
+            }
+            
+            // Sync tags using dedicated addMonitorTag API
+            if (monitorTags.length > 0) {
+              for (const tag of monitorTags) {
+                try {
+                  await this.addMonitorTag(targetSocket, tag.tag_id, matchingTarget.id, tag.value);
+                } catch (err) {
+                  console.warn(`Warning: Could not add tag ${tag.tag_id} to monitor ${cleanedMonitor.name}: ${err.message}`);
+                }
+              }
+            }
             
             // Store ID mapping
             monitorIdMapping[sourceId] = matchingTarget.id;
@@ -469,9 +526,31 @@ class UptimeKumaSync {
             
             const monitorID = await this.saveMonitor(targetSocket, minimalMonitor);
             
-            // Phase 2: Update with full details
+            // Phase 2: Update with full details (but remove tags first)
+            const monitorTags = [];
+            if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
+              for (const tag of cleanedMonitor.tags) {
+                monitorTags.push({
+                  tag_id: tagMapping[tag.tag_id] || tag.tag_id,
+                  value: tag.value || ''
+                });
+              }
+            }
+            delete cleanedMonitor.tags;  // Remove tags - will add separately
+            
             cleanedMonitor.id = monitorID;
             await this.updateMonitor(targetSocket, cleanedMonitor);
+            
+            // Phase 3: Add tags using dedicated API (no need to delete for new monitors)
+            if (monitorTags.length > 0) {
+              for (const tag of monitorTags) {
+                try {
+                  await this.addMonitorTag(targetSocket, tag.tag_id, monitorID, tag.value);
+                } catch (err) {
+                  console.warn(`Warning: Could not add tag ${tag.tag_id} to new monitor ${cleanedMonitor.name}: ${err.message}`);
+                }
+              }
+            }
             
             // Store ID mapping
             monitorIdMapping[sourceId] = monitorID;
@@ -522,6 +601,8 @@ class UptimeKumaSync {
               // Update monitor with remapped parent ID
               monitor.id = targetId;
               monitor.parent = targetParentId;
+              // Ensure tags are not included (they were already synced in first pass)
+              delete monitor.tags;
               
               await this.updateMonitor(targetSocket, monitor);
               parentUpdated++;
