@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const UptimeKumaSync = require('./uptime-kuma-sync.js');
+const UptimeKumaSync = require('../src/uptime-kuma-sync.js');
 
 describe('UptimeKumaSync', () => {
   describe('cleanMonitorData', () => {
@@ -28,7 +28,7 @@ describe('UptimeKumaSync', () => {
 
       const cleaned = syncer.cleanMonitorData(monitor);
 
-      assert.deepStrictEqual(cleaned.notificationIDList, []);
+      assert.deepStrictEqual(cleaned.notificationIDList, {});  // Object, not array
       // HTTP monitors get sensible default for accepted_statuscodes
       assert.deepStrictEqual(cleaned.accepted_statuscodes, ['200-299']);
     });
@@ -66,8 +66,8 @@ describe('UptimeKumaSync', () => {
 
       const cleaned = syncerWithArraysExcluded.cleanMonitorData(monitor);
 
-      // notificationIDList should be reset to empty when in excludedFields
-      assert.deepStrictEqual(cleaned.notificationIDList, []);
+      // notificationIDList should be reset to empty object when in excludedFields
+      assert.deepStrictEqual(cleaned.notificationIDList, {});  // Object, not array
       // accepted_statuscodes should get sensible default for HTTP monitors
       assert.deepStrictEqual(cleaned.accepted_statuscodes, ['200-299']);
     });
@@ -129,7 +129,8 @@ describe('UptimeKumaSync', () => {
       assert.strictEqual(cleaned.created_date, undefined);
       assert.strictEqual(cleaned.updated_date, undefined);
       assert.strictEqual(cleaned.docker_host, undefined);
-      assert.strictEqual(cleaned.parent, undefined);
+      // parent is now preserved for group mapping during sync
+      assert.strictEqual(cleaned.parent, 101);
     });
 
     it('should remove auto-generated fields', () => {
@@ -267,7 +268,8 @@ describe('UptimeKumaSync', () => {
       assert.strictEqual(cleaned.userId, undefined);
       assert.strictEqual(cleaned.created_date, undefined);
       assert.strictEqual(cleaned.docker_host, undefined);
-      assert.strictEqual(cleaned.parent, undefined);
+      // parent is now preserved for group mapping
+      assert.strictEqual(cleaned.parent, 10);
       assert.strictEqual(cleaned.path, undefined);
       assert.strictEqual(cleaned.children_i_ds, undefined);
       assert.strictEqual(cleaned.interval, undefined);

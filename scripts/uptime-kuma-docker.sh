@@ -55,11 +55,15 @@ case "$1" in
   
   sync)
     if [ -z "$2" ] || [ -z "$3" ]; then
-      echo "Usage: $0 sync <source-instance> <target-instance>"
+      echo "Usage: $0 sync <source-instance> <target-instance> [--deep|--shallow]"
       exit 1
     fi
-    echo "Syncing from $2 to $3..."
-    run_command node src/uptime-kuma-sync.js "$2" "$3"
+    SOURCE="$2"
+    TARGET="$3"
+    shift 3
+    FLAGS="$@"
+    echo "Syncing from $SOURCE to $TARGET..."
+    run_command node src/uptime-kuma-sync.js "$SOURCE" "$TARGET" $FLAGS
     ;;
   
   diff)

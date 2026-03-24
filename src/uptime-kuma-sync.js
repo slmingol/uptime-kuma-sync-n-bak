@@ -226,7 +226,7 @@ class UptimeKumaSync {
     
     // Remove foreign key references that won't match across instances
     delete cleaned.docker_host;
-    delete cleaned.parent;
+    // NOTE: parent field is kept and will be remapped during sync
     
     // Remove auto-generated/computed fields
     delete cleaned.path;
@@ -384,11 +384,13 @@ class UptimeKumaSync {
       const targetMonitors = await this.getMonitors(targetSocket);
       const targetMonitorList = Object.values(targetMonitors);
       
-      // Sync each monitor
+      // Sync each monitor - First pass (sync without parent relationships)
       let created = 0;
       let updated = 0;
       let skipped = 0;
       const failedMonitors = [];
+      const monitorIdMapping = {}; // Maps source monitor IDs to target monitor IDs
+      const monitorsWithParent = []; // Track monitors that have parent relationships
       
       for (const sourceMonitor of monitorList) {
         let fullMonitor;
@@ -396,16 +398,17 @@ class UptimeKumaSync {
           // Get full monitor details
           fullMonitor = await this.getMonitor(sourceSocket, sourceMonitor.id);
           
+          // Store original source ID for mapping
+          const sourceId = fullMonitor.id;
+          
+          // Store parent relationship if it exists (to be remapped in second pass)
+          const originalParent = fullMonitor.parent;
+          
           // Clean the monitor data
           const cleanedMonitor = this.cleanMonitorData(fullMonitor);
           
-          // Map tags
-          if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
-            cleanedMonitor.tags = cleanedMonitor.tags.map(tag => ({
-              ...tag,
-              tag_id: tagMapping[tag.tag_id] || tag.tag_id
-            }));
-          }
+          // Temporarily remove parent for first pass (will be added in second pass with remapped ID)
+          delete cleanedMonitor.parent;
           
           // Find matching monitor in target (by name and type)
           const matchingTarget = targetMonitorList.find(
@@ -416,7 +419,32 @@ class UptimeKumaSync {
             // Update existing monitor
             console.log(`Updating: ${cleanedMonitor.name}`);
             cleanedMonitor.id = matchingTarget.id;
+            
+            // Map tags - must be done AFTER we have the target monitor ID
+            // NOTE: editMonitor API does not reliably persist tags, but we include them
+            // in case future Uptime Kuma versions support it
+            if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
+              cleanedMonitor.tags = cleanedMonitor.tags.map(tag => ({
+                tag_id: tagMapping[tag.tag_id] || tag.tag_id,
+                name: tag.name,
+                color: tag.color,
+                value: tag.value || ''
+              }));
+            }
             await this.updateMonitor(targetSocket, cleanedMonitor);
+            
+            // Store ID mapping
+            monitorIdMapping[sourceId] = matchingTarget.id;
+            
+            // Track if this monitor has a parent that needs remapping
+            if (originalParent) {
+              monitorsWithParent.push({
+                targetId: matchingTarget.id,
+                sourceParentId: originalParent,
+                monitor: cleanedMonitor
+              });
+            }
+            
             updated++;
           } else {
             // Create new monitor using two-phase approach to work around server bug
@@ -444,6 +472,19 @@ class UptimeKumaSync {
             // Phase 2: Update with full details
             cleanedMonitor.id = monitorID;
             await this.updateMonitor(targetSocket, cleanedMonitor);
+            
+            // Store ID mapping
+            monitorIdMapping[sourceId] = monitorID;
+            
+            // Track if this monitor has a parent that needs remapping
+            if (originalParent) {
+              monitorsWithParent.push({
+                targetId: monitorID,
+                sourceParentId: originalParent,
+                monitor: cleanedMonitor
+              });
+            }
+            
             created++;
           }
         } catch (err) {
@@ -463,6 +504,38 @@ class UptimeKumaSync {
           }
           skipped++;
         }
+      }
+      
+      // Second pass: Update parent relationships
+      if (monitorsWithParent.length > 0) {
+        console.log(`\nUpdating parent relationships for ${monitorsWithParent.length} monitors...`);
+        
+        let parentUpdated = 0;
+        let parentSkipped = 0;
+        
+        for (const { targetId, sourceParentId, monitor } of monitorsWithParent) {
+          try {
+            // Map source parent ID to target parent ID
+            const targetParentId = monitorIdMapping[sourceParentId];
+            
+            if (targetParentId) {
+              // Update monitor with remapped parent ID
+              monitor.id = targetId;
+              monitor.parent = targetParentId;
+              
+              await this.updateMonitor(targetSocket, monitor);
+              parentUpdated++;
+            } else {
+              console.log(`⚠ Warning: Parent not found for ${monitor.name} (source parent ID: ${sourceParentId})`);
+              parentSkipped++;
+            }
+          } catch (err) {
+            console.error(`Error updating parent for ${monitor.name}: ${err.message}`);
+            parentSkipped++;
+          }
+        }
+        
+        console.log(`Parent relationships updated: ${parentUpdated}, skipped: ${parentSkipped}`);
       }
       
       console.log('\n=== Sync Complete ===');

@@ -22,11 +22,16 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 - ✅ Preserves instance-specific settings (intervals, timeouts, TTLs) in shallow mode
 - ✅ Updates existing monitors or creates new ones
 - ✅ Maps tags/groups correctly between instances
+- ✅ **Parent/Group relationships** - Correctly maintains monitor hierarchies (191 monitors)
 - ✅ **Named instance configuration** - Reference instances by name
 - ✅ **Automatic backup before sync** - Creates a timestamped backup of the target instance
 - ✅ **Standalone backup tool** - Backup any instance on demand
 - ✅ **Restore tool** - Restore from any backup file
 - ✅ **Diff tool** - Compare monitors between two instances
+
+### Known Limitations
+
+- ⚠️ **Tag syncing limitation**: The Uptime Kuma Socket.IO `editMonitor` API does not persist tag associations reliably. Tags work for monitors with matching IDs between instances but may not sync for monitors requiring ID remapping. See [KNOWN-LIMITATIONS.md](KNOWN-LIMITATIONS.md) for details. **Workaround**: Manually add tags via the Uptime Kuma UI after syncing.
 
 ## Installation
 
