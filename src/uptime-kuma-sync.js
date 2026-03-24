@@ -324,7 +324,7 @@ class UptimeKumaSync {
     
     console.log('=== End Tag Mapping ===\n');
     
-    return tagMapping;
+    return { tagMapping, sourceTags };
   }
 
   /**
@@ -408,7 +408,7 @@ class UptimeKumaSync {
       console.log(`Mode: ${this.syncMode.toUpperCase()} ${this.syncMode === 'deep' ? '(copying ALL settings)' : '(preserving instance-specific settings)'}`);
       console.log(`Mode: ${this.syncMode.toUpperCase()} ${this.syncMode === 'deep' ? '(copying all settings)' : '(preserving instance-specific settings)'}`);
       console.log('Syncing tags...');
-      const tagMapping = await this.syncTags(sourceSocket, targetSocket);
+      const { tagMapping, sourceTags } = await this.syncTags(sourceSocket, targetSocket);
       console.log(`Tag mapping created: ${Object.keys(tagMapping).length} tags\n`);
       
       // Get monitors from source
