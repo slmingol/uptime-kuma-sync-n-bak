@@ -512,7 +512,9 @@ class UptimeKumaSync {
               console.log(`  Adding ${monitorTags.length} tags from source...`);
               for (const tag of monitorTags) {
                 try {
-                  const sourceTagName = sourceTags[tag.original_source_id]?.name || 'unknown';
+                  // Find source tag by ID (not by object key)
+                  const sourceTag = Object.values(sourceTags).find(t => (t.tag_id || t.id) === tag.original_source_id);
+                  const sourceTagName = sourceTag?.name || 'unknown';
                   console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id} (value: ${tag.value || 'none'})`);
                   await this.addMonitorTag(targetSocket, tag.tag_id, matchingTarget.id, tag.value);
                   console.log(`      ✓ Added successfully`);
@@ -581,7 +583,9 @@ class UptimeKumaSync {
               console.log(`  Adding ${monitorTags.length} tags to new monitor...`);
               for (const tag of monitorTags) {
                 try {
-                  const sourceTagName = sourceTags[tag.original_source_id]?.name || 'unknown';
+                  // Find source tag by ID (not by object key)
+                  const sourceTag = Object.values(sourceTags).find(t => (t.tag_id || t.id) === tag.original_source_id);
+                  const sourceTagName = sourceTag?.name || 'unknown';
                   console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id}`);
                   await this.addMonitorTag(targetSocket, tag.tag_id, monitorID, tag.value);
                   console.log(`      ✓ Added successfully`);
