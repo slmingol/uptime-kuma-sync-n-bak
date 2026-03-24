@@ -296,6 +296,10 @@ class UptimeKumaSync {
     const sourceTags = await this.getTags(sourceSocket);
     const targetTags = await this.getTags(targetSocket);
     
+    console.log('\n=== Tag Mapping Debug ===');
+    console.log('Source tags:', Object.entries(sourceTags).map(([id, tag]) => `${id}:${tag.name}`).join(', '));
+    console.log('Target tags:', Object.entries(targetTags).map(([id, tag]) => `${id}:${tag.name}`).join(', '));
+    
     const tagMapping = {};
     
     for (const [sourceId, sourceTag] of Object.entries(sourceTags)) {
@@ -313,8 +317,12 @@ class UptimeKumaSync {
         });
       }
       
-      tagMapping[sourceId] = matchingTag.id || matchingTag.tag_id;
+      const targetId = matchingTag.id || matchingTag.tag_id;
+      tagMapping[sourceId] = targetId;
+      console.log(`Map: source ${sourceId} (${sourceTag.name}) -> target ${targetId}`);
     }
+    
+    console.log('=== End Tag Mapping ===\n');
     
     return tagMapping;
   }
@@ -475,6 +483,7 @@ class UptimeKumaSync {
             if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
               for (const tag of cleanedMonitor.tags) {
                 monitorTags.push({
+                  original_source_id: tag.tag_id,
                   tag_id: tagMapping[tag.tag_id] || tag.tag_id,
                   value: tag.value || ''
                 });
@@ -492,7 +501,8 @@ class UptimeKumaSync {
               console.log(`  Adding ${monitorTags.length} tags from source...`);
               for (const tag of monitorTags) {
                 try {
-                  console.log(`    + Adding tag: ${tag.tag_id} (value: ${tag.value || 'none'})`);
+                  const sourceTagName = sourceTags[tag.original_source_id]?.name || 'unknown';
+                  console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id} (value: ${tag.value || 'none'})`);
                   await this.addMonitorTag(targetSocket, tag.tag_id, matchingTarget.id, tag.value);
                   console.log(`      ✓ Added successfully`);
                 } catch (err) {
@@ -544,6 +554,7 @@ class UptimeKumaSync {
             if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
               for (const tag of cleanedMonitor.tags) {
                 monitorTags.push({
+                  original_source_id: tag.tag_id,
                   tag_id: tagMapping[tag.tag_id] || tag.tag_id,
                   value: tag.value || ''
                 });
@@ -556,11 +567,15 @@ class UptimeKumaSync {
             
             // Phase 3: Add tags using dedicated API (no need to delete for new monitors)
             if (monitorTags.length > 0) {
+              console.log(`  Adding ${monitorTags.length} tags to new monitor...`);
               for (const tag of monitorTags) {
                 try {
+                  const sourceTagName = sourceTags[tag.original_source_id]?.name || 'unknown';
+                  console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id}`);
                   await this.addMonitorTag(targetSocket, tag.tag_id, monitorID, tag.value);
+                  console.log(`      ✓ Added successfully`);
                 } catch (err) {
-                  console.warn(`Warning: Could not add tag ${tag.tag_id} to new monitor ${cleanedMonitor.name}: ${err.message}`);
+                  console.warn(`      ✗ Could not add tag: ${err.message}`);
                 }
               }
             }
