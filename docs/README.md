@@ -23,12 +23,57 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 - ✅ Updates existing monitors or creates new ones
 - ✅ Maps tags/groups correctly between instances
 - ✅ **Parent/Group relationships** - Correctly maintains monitor hierarchies (191 monitors)
-- ✅ **Tag associations** - Uses dedicated `addMonitorTag` API for reliable tag syncing
+- ✅ **Tag associations** - Uses dedicated `addMonitorTag` API for reliable tag syncing, prevents duplicates
 - ✅ **Named instance configuration** - Reference instances by name
 - ✅ **Automatic backup before sync** - Creates a timestamped backup of the target instance
 - ✅ **Standalone backup tool** - Backup any instance on demand
 - ✅ **Restore tool** - Restore from any backup file
 - ✅ **Diff tool** - Compare monitors between two instances
+
+## Sync Modes
+
+### Shallow Mode (Default) `sync primary secondary`
+
+**Use when:** You want to sync monitor definitions but keep each instance's own check intervals and notification settings.
+
+**What syncs:**
+- Monitor names, types, URLs, hostnames
+- Basic configuration (auth, headers, etc.)
+- **Tags/groups** (cleans duplicates, exact match from source)
+- **Parent/group hierarchies**
+
+**What stays on target:**
+- Check intervals (`interval`, `retryInterval`, `resendInterval`)
+- Timeouts and retry limits (`timeout`, `maxretries`, `maxredirects`)
+- DNS resolution settings (`dns_resolve_type`, `dns_resolve_server`)
+- Notification settings (`notificationIDList`)
+- Accept status codes (`accepted_statuscodes`)
+
+**Example use case:** Production→Staging sync where staging checks less frequently
+
+### Deep Mode `sync primary secondary --deep`
+
+**Use when:** You want an exact replica of the source instance.
+
+**What syncs:**
+- **Everything from shallow mode, plus:**
+- Check intervals and timing settings
+- Timeout and retry configuration
+- DNS resolution settings
+- Notification associations
+- All instance-specific settings
+
+**Example use case:** DR (disaster recovery) setup, migrating to new instance
+
+### Tag & Hierarchy Handling (Both Modes)
+
+Regardless of mode, sync now:
+1. **Deletes all existing tags** from target monitor
+2. **Updates monitor configuration**
+3. **Adds fresh tags** from source (prevents duplicates)
+4. **Remaps parent/group relationships** to maintain hierarchies
+
+This prevents tag duplication and ensures hierarchies stay intact across instances with different IDs.
 
 ## Installation
 
