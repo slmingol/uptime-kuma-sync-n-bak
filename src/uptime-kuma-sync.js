@@ -297,8 +297,14 @@ class UptimeKumaSync {
     const targetTags = await this.getTags(targetSocket);
     
     console.log('\n=== Tag Mapping Debug ===');
-    console.log('Source tags:', Object.entries(sourceTags).map(([id, tag]) => `${id}:${tag.name}`).join(', '));
-    console.log('Target tags:', Object.entries(targetTags).map(([id, tag]) => `${id}:${tag.name}`).join(', '));
+    console.log('Source tags:');
+    for (const [key, tag] of Object.entries(sourceTags)) {
+      console.log(`  key=${key}, id=${tag.id}, tag_id=${tag.tag_id}, name=${tag.name}`);
+    }
+    console.log('Target tags:');
+    for (const [key, tag] of Object.entries(targetTags)) {
+      console.log(`  key=${key}, id=${tag.id}, tag_id=${tag.tag_id}, name=${tag.name}`);
+    }
     
     const tagMapping = {};
     
@@ -317,9 +323,14 @@ class UptimeKumaSync {
         });
       }
       
-      const targetId = matchingTag.id || matchingTag.tag_id;
-      tagMapping[sourceId] = targetId;
-      console.log(`Map: source ${sourceId} (${sourceTag.name}) -> target ${targetId}`);
+      console.log(`Matching source ${sourceId} (${sourceTag.name}): found target tag with id=${matchingTag.id}, tag_id=${matchingTag.tag_id}, name=${matchingTag.name}`);
+      const targetId = matchingTag.tag_id || matchingTag.id;
+      
+      // KEY FIX: Use the source tag's actual tag_id (not the object key) as the mapping key
+      // because monitor.tags[].tag_id refers to this value
+      const sourceTagId = sourceTag.tag_id || sourceTag.id;
+      tagMapping[sourceTagId] = targetId;
+      console.log(`Map: source tag_id ${sourceTagId} (${sourceTag.name}) -> target tag_id ${targetId}`);
     }
     
     console.log('=== End Tag Mapping ===\n');
