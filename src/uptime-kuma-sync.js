@@ -453,6 +453,20 @@ class UptimeKumaSync {
             // Fetch full target monitor details to get complete tag list
             const fullTargetMonitor = await this.getMonitor(targetSocket, matchingTarget.id);
             
+            // STEP 1: Remove ALL existing tags first to avoid duplicates
+            if (fullTargetMonitor.tags && Array.isArray(fullTargetMonitor.tags)) {
+              for (const existingTag of fullTargetMonitor.tags) {
+                try {
+                  await this.deleteMonitorTag(targetSocket, existingTag.tag_id, matchingTarget.id, existingTag.value || '');
+                } catch (err) {
+                  // Ignore errors - tag might not exist or already deleted
+                  if (!err.message.includes('does not exist')) {
+                    console.warn(`Warning: Could not delete existing tag ${existingTag.tag_id} from monitor ${cleanedMonitor.name}: ${err.message}`);
+                  }
+                }
+              }
+            }
+            
             // Extract and map tags - we'll sync them separately via addMonitorTag API
             const monitorTags = [];
             if (cleanedMonitor.tags && Array.isArray(cleanedMonitor.tags)) {
@@ -467,22 +481,10 @@ class UptimeKumaSync {
             // Remove tags from monitor object - editMonitor doesn't handle them
             delete cleanedMonitor.tags;
             
-            // Update the monitor
+            // STEP 2: Update the monitor
             await this.updateMonitor(targetSocket, cleanedMonitor);
             
-            // Remove existing tags first to avoid duplicates
-            if (fullTargetMonitor.tags && Array.isArray(fullTargetMonitor.tags)) {
-              for (const existingTag of fullTargetMonitor.tags) {
-                try {
-                  await this.deleteMonitorTag(targetSocket, existingTag.tag_id, matchingTarget.id, existingTag.value || '');
-                } catch (err) {
-                  // Ignore errors - tag might not exist or already deleted
-                  console.warn(`Warning: Could not delete existing tag ${existingTag.tag_id} from monitor ${cleanedMonitor.name}: ${err.message}`);
-                }
-              }
-            }
-            
-            // Sync tags using dedicated addMonitorTag API
+            // STEP 3: Add tags from source using dedicated addMonitorTag API
             if (monitorTags.length > 0) {
               for (const tag of monitorTags) {
                 try {
