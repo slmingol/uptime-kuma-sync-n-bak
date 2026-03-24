@@ -23,6 +23,7 @@ class UptimeKumaSync {
     this.targetName = config.targetName || 'target';
     this.backupDir = config.backupDir || './uptime-kuma-backups';
     this.syncMode = config.syncMode || 'shallow'; // 'shallow' or 'deep'
+    this.verbose = config.verbose || false; // Enable detailed logging
     this.excludedFields = config.excludedFields || [
       'interval',
       'retryInterval',
@@ -296,14 +297,16 @@ class UptimeKumaSync {
     const sourceTags = await this.getTags(sourceSocket);
     const targetTags = await this.getTags(targetSocket);
     
-    console.log('\n=== Tag Mapping Debug ===');
-    console.log('Source tags:');
-    for (const [key, tag] of Object.entries(sourceTags)) {
-      console.log(`  key=${key}, id=${tag.id}, tag_id=${tag.tag_id}, name=${tag.name}`);
-    }
-    console.log('Target tags:');
-    for (const [key, tag] of Object.entries(targetTags)) {
-      console.log(`  key=${key}, id=${tag.id}, tag_id=${tag.tag_id}, name=${tag.name}`);
+    if (this.verbose) {
+      console.log('\n=== Tag Mapping Debug ===');
+      console.log('Source tags:');
+      for (const [key, tag] of Object.entries(sourceTags)) {
+        console.log(`  key=${key}, id=${tag.id}, tag_id=${tag.tag_id}, name=${tag.name}`);
+      }
+      console.log('Target tags:');
+      for (const [key, tag] of Object.entries(targetTags)) {
+        console.log(`  key=${key}, id=${tag.id}, tag_id=${tag.tag_id}, name=${tag.name}`);
+      }
     }
     
     const tagMapping = {};
@@ -323,17 +326,23 @@ class UptimeKumaSync {
         });
       }
       
-      console.log(`Matching source ${sourceId} (${sourceTag.name}): found target tag with id=${matchingTag.id}, tag_id=${matchingTag.tag_id}, name=${matchingTag.name}`);
+      if (this.verbose) {
+        console.log(`Matching source ${sourceId} (${sourceTag.name}): found target tag with id=${matchingTag.id}, tag_id=${matchingTag.tag_id}, name=${matchingTag.name}`);
+      }
       const targetId = matchingTag.tag_id || matchingTag.id;
       
       // KEY FIX: Use the source tag's actual tag_id (not the object key) as the mapping key
       // because monitor.tags[].tag_id refers to this value
       const sourceTagId = sourceTag.tag_id || sourceTag.id;
       tagMapping[sourceTagId] = targetId;
-      console.log(`Map: source tag_id ${sourceTagId} (${sourceTag.name}) -> target tag_id ${targetId}`);
+      if (this.verbose) {
+        console.log(`Map: source tag_id ${sourceTagId} (${sourceTag.name}) -> target tag_id ${targetId}`);
+      }
     }
     
-    console.log('=== End Tag Mapping ===\n');
+    if (this.verbose) {
+      console.log('=== End Tag Mapping ===\n');
+    }
     
     return { tagMapping, sourceTags };
   }
@@ -474,18 +483,18 @@ class UptimeKumaSync {
             
             // STEP 1: Remove ALL existing tags first to avoid duplicates
             if (fullTargetMonitor.tags && Array.isArray(fullTargetMonitor.tags)) {
-              console.log(`  Removing ${fullTargetMonitor.tags.length} existing tags from ${cleanedMonitor.name}...`);
+              if (this.verbose) { console.log(`  Removing ${fullTargetMonitor.tags.length} existing tags from ${cleanedMonitor.name}...`); }
               for (const existingTag of fullTargetMonitor.tags) {
                 try {
-                  console.log(`    - Deleting tag: ${existingTag.name || existingTag.tag_id} (value: ${existingTag.value || 'none'})`);
+                  if (this.verbose) { console.log(`    - Deleting tag: ${existingTag.name || existingTag.tag_id} (value: ${existingTag.value || 'none'})`); }
                   await this.deleteMonitorTag(targetSocket, existingTag.tag_id, matchingTarget.id, existingTag.value || '');
-                  console.log(`      ✓ Deleted successfully`);
+                  if (this.verbose) { console.log(`      ✓ Deleted successfully`); }
                 } catch (err) {
                   // Ignore errors - tag might not exist or already deleted
-                  console.warn(`      ✗ Could not delete tag: ${err.message}`);
+                  if (this.verbose) { console.warn(`      ✗ Could not delete tag: ${err.message}`); }
                 }
               }
-            } else {
+            } else if (this.verbose) {
               console.log(`  No existing tags to remove`);
             }
             
@@ -509,20 +518,22 @@ class UptimeKumaSync {
             
             // STEP 3: Add tags from source using dedicated addMonitorTag API
             if (monitorTags.length > 0) {
-              console.log(`  Adding ${monitorTags.length} tags from source...`);
+              if (this.verbose) { console.log(`  Adding ${monitorTags.length} tags from source...`); }
               for (const tag of monitorTags) {
                 try {
-                  // Find source tag by ID (not by object key)
-                  const sourceTag = Object.values(sourceTags).find(t => (t.tag_id || t.id) === tag.original_source_id);
-                  const sourceTagName = sourceTag?.name || 'unknown';
-                  console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id} (value: ${tag.value || 'none'})`);
+                  if (this.verbose) {
+                    // Find source tag by ID (not by object key)
+                    const sourceTag = Object.values(sourceTags).find(t => (t.tag_id || t.id) === tag.original_source_id);
+                    const sourceTagName = sourceTag?.name || 'unknown';
+                    console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id} (value: ${tag.value || 'none'})`);
+                  }
                   await this.addMonitorTag(targetSocket, tag.tag_id, matchingTarget.id, tag.value);
-                  console.log(`      ✓ Added successfully`);
+                  if (this.verbose) { console.log(`      ✓ Added successfully`); }
                 } catch (err) {
                   console.warn(`      ✗ Could not add tag: ${err.message}`);
                 }
               }
-            } else {
+            } else if (this.verbose) {
               console.log(`  No tags to add from source`);
             }
             
@@ -580,15 +591,17 @@ class UptimeKumaSync {
             
             // Phase 3: Add tags using dedicated API (no need to delete for new monitors)
             if (monitorTags.length > 0) {
-              console.log(`  Adding ${monitorTags.length} tags to new monitor...`);
+              if (this.verbose) { console.log(`  Adding ${monitorTags.length} tags to new monitor...`); }
               for (const tag of monitorTags) {
                 try {
-                  // Find source tag by ID (not by object key)
-                  const sourceTag = Object.values(sourceTags).find(t => (t.tag_id || t.id) === tag.original_source_id);
-                  const sourceTagName = sourceTag?.name || 'unknown';
-                  console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id}`);
+                  if (this.verbose) {
+                    // Find source tag by ID (not by object key)
+                    const sourceTag = Object.values(sourceTags).find(t => (t.tag_id || t.id) === tag.original_source_id);
+                    const sourceTagName = sourceTag?.name || 'unknown';
+                    console.log(`    + Adding tag: source ${tag.original_source_id} (${sourceTagName}) -> target ${tag.tag_id}`);
+                  }
                   await this.addMonitorTag(targetSocket, tag.tag_id, monitorID, tag.value);
-                  console.log(`      ✓ Added successfully`);
+                  if (this.verbose) { console.log(`      ✓ Added successfully`); }
                 } catch (err) {
                   console.warn(`      ✗ Could not add tag: ${err.message}`);
                 }
@@ -759,6 +772,7 @@ function loadConfig(sourceName, targetName, options = {}) {
       targetName: targetName,
       backupDir: fileConfig.backup?.directory || './uptime-kuma-backups',
       syncMode: options.syncMode || fileConfig.sync?.mode || 'shallow',
+      verbose: options.verbose || false,
       excludedFields: fileConfig.sync?.excludedFields || defaultExcludedFields()
     };
   }
@@ -775,6 +789,7 @@ function loadConfig(sourceName, targetName, options = {}) {
     targetName: process.env.TARGET_NAME || 'target',
     backupDir: process.env.BACKUP_DIR || './uptime-kuma-backups',
     syncMode: options.syncMode || process.env.SYNC_MODE || 'shallow',
+    verbose: options.verbose || false,
     excludedFields: defaultExcludedFields()
   };
 }
@@ -816,6 +831,7 @@ Options:
   -l, --list       List available instances
   --deep           Deep sync mode - copy ALL settings including intervals, timeouts, etc.
   --shallow        Shallow sync mode (default) - preserve instance-specific settings
+  -v, --verbose    Show detailed tag sync operations and debugging information
 
 Sync Modes:
   Shallow (default): Syncs monitor names, types, URLs, and configuration while
@@ -832,6 +848,9 @@ Examples:
   
   # Deep sync (copies ALL settings including intervals):
   node uptime-kuma-sync.js primary secondary --deep
+  
+  # Verbose output (shows detailed tag operations):
+  node uptime-kuma-sync.js primary secondary --verbose
   
   # Using environment variables:
   SOURCE_UPTIME_URL=... TARGET_UPTIME_URL=... node uptime-kuma-sync.js
@@ -855,13 +874,16 @@ if (require.main === module) {
     syncMode = 'shallow';
   }
   
+  // Parse verbose flag
+  const verbose = args.includes('--verbose') || args.includes('-v');
+  
   // Filter out mode flags from args to get instance names
   const instanceArgs = args.filter(arg => !arg.startsWith('--') && !arg.startsWith('-'));
   const sourceName = instanceArgs[0];
   const targetName = instanceArgs[1];
 
   // Configuration
-  const config = loadConfig(sourceName, targetName, { syncMode });
+  const config = loadConfig(sourceName, targetName, { syncMode, verbose });
 
   // Show warning if using default values
   if (!sourceName && !process.env.SOURCE_UPTIME_URL) {
