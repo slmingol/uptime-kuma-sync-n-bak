@@ -1,0 +1,159 @@
+name: Cleanup Release Artifacts
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      days_old:
+        description: 'Delete artifacts older than this many days'
+        required: false
+        default: '7'
+        type: number
+      dry_run:
+        description: 'Dry run (do not actually delete)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  cleanup-workflow-runs:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    
+    steps:
+      - name: Cleanup old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: ${{ inputs.days_old || 7 }}
+          keep_minimum_runs: 3
+
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    
+    steps:
+      - name: Cleanup old artifacts
+        uses: c-hive/gha-remove-artifacts@v1
+        with:
+          age: '${{ inputs.days_old || 7 }} days'
+          skip-recent: 3
+
+  cleanup-docker-images:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    
+    steps:
+      - name: Cleanup old Docker images
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'uptime-kuma-sync-n-bak'
+          package-type: 'container'
+          min-versions-to-keep: 5
+          delete-only-untagged-versions: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-cache:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Cleanup old caches
+        run: |
+          echo "Cleaning up caches older than 7 days..."
+          gh extension install actions/gh-actions-cache
+          
+          REPO=${{ github.repository }}
+          BRANCH="refs/heads/main"
+          
+          # Get cache list
+          cacheKeysForPR=$(gh actions-cache list -R $REPO -B $BRANCH | cut -f 1)
+          
+          for cacheKey in $cacheKeysForPR; do
+            echo "Evaluating cache: $cacheKey"
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "DRY RUN: Would delete cache $cacheKey"
+            else
+              gh actions-cache delete $cacheKey -R $REPO -B $BRANCH --confirm || true
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-releases:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Delete old releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching releases..."
+          
+          KEEP_COUNT=10
+          DAYS_OLD=${{ inputs.days_old || 90 }}
+          CUTOFF_DATE=$(date -u -d "$DAYS_OLD days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${DAYS_OLD}d +%Y-%m-%dT%H:%M:%SZ)
+          
+          echo "Strategy: Keep last $KEEP_COUNT releases, delete releases older than $DAYS_OLD days (before $CUTOFF_DATE)"
+          
+          # Get all releases sorted by creation date
+          gh release list \
+            --limit 200 \
+            --json tagName,createdAt,isLatest \
+            --repo ${{ github.repository }} \
+          | jq -r --arg cutoff "$CUTOFF_DATE" --argjson keep "$KEEP_COUNT" '
+            map(select(.isLatest == false)) |
+            sort_by(.createdAt) |
+            reverse |
+            to_entries |
+            map(select(.key >= $keep and .value.createdAt < $cutoff)) |
+            .[].value.tagName
+          ' \
+          | while read -r tag; do
+            if [ -n "$tag" ]; then
+              echo "Deleting release: $tag"
+              if [ "${{ inputs.dry_run }}" = "true" ]; then
+                echo "DRY RUN: Would delete release $tag"
+              else
+                gh release delete "$tag" --yes --repo ${{ github.repository }} || true
+              fi
+            fi
+          done
+          
+          echo "Release cleanup complete!"
+      
+      - name: Summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TOTAL=$(gh release list --limit 200 --json tagName --jq 'length' --repo ${{ github.repository }})
+          echo "### Release Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Strategy: Keep last 10 releases + latest" >> $GITHUB_STEP_SUMMARY
+          echo "- Max age: ${{ inputs.days_old || 90 }} days" >> $GITHUB_STEP_SUMMARY
+          echo "- Current total: $TOTAL releases" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "- Mode: DRY RUN (no deletions performed)" >> $GITHUB_STEP_SUMMARY
+          fi
