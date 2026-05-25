@@ -24,7 +24,7 @@ class UptimeKumaBackup {
   async connect(url, username, password) {
     return new Promise((resolve, reject) => {
       const socket = io(url, {
-        transports: ['websocket'],
+        transports: ['polling', 'websocket'],
         reconnection: false
       });
 
