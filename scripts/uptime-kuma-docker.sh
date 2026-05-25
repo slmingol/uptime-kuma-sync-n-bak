@@ -18,6 +18,11 @@ else
   exit 1
 fi
 
+# Podman requires localhost/ prefix for locally built images (no registry qualifier)
+if [ "$CONTAINER_CMD" = "podman" ] && [[ "$IMAGE_NAME" != */* ]]; then
+  IMAGE_NAME="localhost/$IMAGE_NAME"
+fi
+
 # Check if config file exists
 if [ ! -f "./uptime-kuma-config.json" ]; then
   echo "Error: uptime-kuma-config.json not found in current directory"
