@@ -46,10 +46,21 @@ jobs:
     
     steps:
       - name: Cleanup old artifacts
-        uses: c-hive/gha-remove-artifacts@v1
-        with:
-          age: '${{ inputs.days_old || 7 }} days'
-          skip-recent: 3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DAYS_OLD=${{ inputs.days_old || 7 }}
+          SKIP_RECENT=3
+          CUTOFF=$(date -u -d "${DAYS_OLD} days ago" +%Y-%m-%dT%H:%M:%SZ)
+          gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+            | jq -rs --arg cutoff "$CUTOFF" --argjson skip "$SKIP_RECENT" \
+              '[.[].artifacts[] | select(.created_at < $cutoff)] |
+               sort_by(.created_at) | reverse | .[($skip):] | .[].id' \
+            | while read -r id; do
+                gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" \
+                  && echo "Deleted artifact $id" \
+                  || echo "Skipped artifact $id (not found)"
+              done
 
   cleanup-docker-images:
     runs-on: ubuntu-latest
