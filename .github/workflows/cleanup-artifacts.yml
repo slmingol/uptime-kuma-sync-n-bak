@@ -52,9 +52,13 @@ jobs:
           DAYS_OLD=${{ inputs.days_old || 7 }}
           SKIP_RECENT=3
           CUTOFF=$(date -u -d "${DAYS_OLD} days ago" +%Y-%m-%dT%H:%M:%SZ)
+          TAGGED=$(gh api --paginate "repos/${{ github.repository }}/tags?per_page=100" \
+            | jq -rs '[.[].[] | .commit.sha]')
           gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
-            | jq -rs --arg cutoff "$CUTOFF" --argjson skip "$SKIP_RECENT" \
-              '[.[].artifacts[] | select(.created_at < $cutoff)] |
+            | jq -rs --arg cutoff "$CUTOFF" --argjson skip "$SKIP_RECENT" --argjson tagged "$TAGGED" \
+              '[.[].artifacts[] |
+                 select(.created_at < $cutoff) |
+                 select(.workflow_run.head_sha as $sha | ($tagged | index($sha)) == null)] |
                sort_by(.created_at) | reverse | .[($skip):] | .[].id' \
             | while read -r id; do
                 gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" \
