@@ -6,7 +6,7 @@
 
 # Allow users to override the image name (e.g., to use ghcr.io)
 # export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
-IMAGE_NAME="${UPTIME_KUMA_IMAGE:-uptime-kuma-sync:latest}"
+IMAGE_NAME="${UPTIME_KUMA_IMAGE:-ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest}"
 
 # Detect container runtime (docker or podman)
 if command -v docker &> /dev/null; then
@@ -21,12 +21,6 @@ fi
 # Podman requires localhost/ prefix for locally built images (no registry qualifier)
 if [ "$CONTAINER_CMD" = "podman" ] && [[ "$IMAGE_NAME" != */* ]]; then
   IMAGE_NAME="localhost/$IMAGE_NAME"
-fi
-
-# Auto-build if image not present locally (skip when user overrode the image name)
-if [ -z "$UPTIME_KUMA_IMAGE" ] && ! $CONTAINER_CMD image inspect "$IMAGE_NAME" &> /dev/null; then
-  echo "Image $IMAGE_NAME not found locally. Building..."
-  $CONTAINER_CMD build -f docker/Dockerfile -t "$IMAGE_NAME" . || exit 1
 fi
 
 # Check if config file exists
@@ -123,8 +117,9 @@ case "$1" in
 Docker/Podman Wrapper for Uptime Kuma Sync & Backup
 
 Environment Variables:
-  UPTIME_KUMA_IMAGE    Override default image (default: uptime-kuma-sync:latest)
-                       Example: export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
+  UPTIME_KUMA_IMAGE    Override default image
+                       Default: ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest
+                       Example: export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:v1.0.0"
 
 Commands:
   list                              List available instances
@@ -132,25 +127,22 @@ Commands:
   sync <source> <target>            Sync from source to target instance
   diff <source> <target> [--tldr]   Compare monitors between two instances
   restore <backup-file> [instance]  Restore from backup
-  build                             Build the container image
+  build                             Build the container image locally
   shell                             Open interactive shell in container
   help                              Show this help message
 
 Examples:
-  # Using local built image
-  ./uptime-kuma-docker.sh build
+  # Using default image from GitHub Container Registry (pulled automatically)
   ./uptime-kuma-docker.sh list
   ./uptime-kuma-docker.sh backup primary
   ./uptime-kuma-docker.sh sync primary secondary
   ./uptime-kuma-docker.sh diff primary secondary
-
-  # Using pre-built image from GitHub Container Registry
-  export UPTIME_KUMA_IMAGE="ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest"
-  ./uptime-kuma-docker.sh list
-  ./uptime-kuma-docker.sh backup prim
-  ./uptime-kuma-docker.sh sync primary secondary
-  ./uptime-kuma-docker.sh diff primary secondary
   ./uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
+
+  # Using a locally built image
+  ./uptime-kuma-docker.sh build
+  export UPTIME_KUMA_IMAGE="localhost/uptime-kuma-sync:latest"
+  ./uptime-kuma-docker.sh list
 
 Requirements:
   - Docker or Podman installed
