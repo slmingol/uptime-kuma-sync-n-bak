@@ -23,6 +23,12 @@ if [ "$CONTAINER_CMD" = "podman" ] && [[ "$IMAGE_NAME" != */* ]]; then
   IMAGE_NAME="localhost/$IMAGE_NAME"
 fi
 
+# Auto-build if image not present locally (skip when user overrode the image name)
+if [ -z "$UPTIME_KUMA_IMAGE" ] && ! $CONTAINER_CMD image inspect "$IMAGE_NAME" &> /dev/null; then
+  echo "Image $IMAGE_NAME not found locally. Building..."
+  $CONTAINER_CMD build -f docker/Dockerfile -t "$IMAGE_NAME" . || exit 1
+fi
+
 # Check if config file exists
 if [ ! -f "./uptime-kuma-config.json" ]; then
   echo "Error: uptime-kuma-config.json not found in current directory"
