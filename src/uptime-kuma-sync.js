@@ -311,8 +311,9 @@ class UptimeKumaSync {
           customCSS: config.customCSS || '',
           footerText: config.footerText || null,
           showPoweredBy: config.showPoweredBy !== false,
-          googleAnalyticsId: config.googleAnalyticsId || null,
           icon: config.icon || '/icon.svg'
+          // analytics fields omitted — newer Uptime Kuma validates analyticsType
+          // and rejects null/missing values; let the server keep its own defaults
         };
 
         if (!targetSlugs.has(page.slug)) {
