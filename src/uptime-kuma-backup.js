@@ -5,6 +5,7 @@
  * Creates a backup of monitors and tags from an Uptime Kuma instance
  */
 
+const axios = require('axios');
 const io = require('socket.io-client');
 const fs = require('fs');
 const path = require('path');
@@ -86,6 +87,22 @@ class UptimeKumaBackup {
   }
 
   /**
+   * Get list of all status pages via REST API
+   */
+  async getStatusPageList(baseUrl) {
+    const response = await axios.get(`${baseUrl}/api/status-page/list`);
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  /**
+   * Get full status page config and public group list via REST API
+   */
+  async getStatusPage(baseUrl, slug) {
+    const response = await axios.get(`${baseUrl}/api/status-page/${slug}`);
+    return response.data;
+  }
+
+  /**
    * Get all tags
    */
   async getTags(socket) {
@@ -134,6 +151,20 @@ class UptimeKumaBackup {
       const tags = await this.getTags(socket);
       console.log(`✓ ${Object.keys(tags).length} tags`);
 
+      // Get all status pages
+      console.log('\nFetching status pages...');
+      const statusPages = [];
+      try {
+        const pageList = await this.getStatusPageList(this.url);
+        for (const page of pageList) {
+          const pageData = await this.getStatusPage(this.url, page.slug);
+          statusPages.push(pageData);
+          console.log(`✓ ${pageData.config?.title || page.slug}`);
+        }
+      } catch (err) {
+        console.warn(`Could not fetch status pages: ${err.message}`);
+      }
+
       // Create backup object
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
       const backupFile = path.join(this.backupDir, `${this.instanceName}-${timestamp}.json`);
@@ -143,7 +174,8 @@ class UptimeKumaBackup {
         instance: this.instanceName,
         url: this.url,
         monitors,
-        tags
+        tags,
+        statusPages
       };
 
       // Write to file
@@ -153,6 +185,7 @@ class UptimeKumaBackup {
       console.log(`File: ${backupFile}`);
       console.log(`Monitors: ${monitors.length}`);
       console.log(`Tags: ${Object.keys(tags).length}`);
+      console.log(`Status pages: ${statusPages.length}`);
 
     } catch (err) {
       console.error('Backup failed:', err.message);

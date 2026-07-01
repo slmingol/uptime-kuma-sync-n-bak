@@ -207,6 +207,138 @@ class UptimeKumaSync {
   }
 
   /**
+   * Get list of all status pages via REST API
+   */
+  async getStatusPageList(baseUrl) {
+    const response = await axios.get(`${baseUrl}/api/status-page/list`);
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  /**
+   * Get full status page config and public group list via REST API
+   */
+  async getStatusPage(baseUrl, slug) {
+    const response = await axios.get(`${baseUrl}/api/status-page/${slug}`);
+    return response.data;
+  }
+
+  /**
+   * Create a new (empty) status page
+   */
+  async addStatusPage(socket, name, slug) {
+    return new Promise((resolve, reject) => {
+      socket.emit('addStatusPage', name, slug, (res) => {
+        if (res.ok) {
+          resolve(res);
+        } else {
+          reject(new Error(`Failed to create status page "${slug}": ${res.msg}`));
+        }
+      });
+    });
+  }
+
+  /**
+   * Save/update a status page with its config and monitor groups
+   */
+  async saveStatusPage(socket, slug, config, publicGroupList) {
+    return new Promise((resolve, reject) => {
+      socket.emit('saveStatusPage', slug, config, '', publicGroupList, (res) => {
+        if (res.ok) {
+          resolve(res);
+        } else {
+          reject(new Error(`Failed to save status page "${slug}": ${res.msg}`));
+        }
+      });
+    });
+  }
+
+  /**
+   * Sync all status pages from source to target.
+   * Must be called after monitor sync so monitorIdMapping is fully populated.
+   */
+  async syncStatusPages(sourceSocket, targetSocket, monitorIdMapping) {
+    console.log('\n=== Syncing Status Pages ===');
+
+    let sourcePages;
+    try {
+      sourcePages = await this.getStatusPageList(this.sourceUrl);
+    } catch (err) {
+      console.warn(`Could not fetch source status pages: ${err.message}`);
+      return;
+    }
+
+    if (!sourcePages.length) {
+      console.log('No status pages found in source');
+      return;
+    }
+
+    console.log(`Found ${sourcePages.length} status page(s) in source`);
+
+    let targetPages = [];
+    try {
+      targetPages = await this.getStatusPageList(this.targetUrl);
+    } catch (err) {
+      targetPages = [];
+    }
+    const targetSlugs = new Set(targetPages.map(p => p.slug));
+
+    let created = 0, updated = 0, failed = 0;
+
+    for (const page of sourcePages) {
+      try {
+        const sourceData = await this.getStatusPage(this.sourceUrl, page.slug);
+        const { config, publicGroupList } = sourceData;
+
+        // Remap monitor IDs from source to target; drop monitors with no mapping
+        const remappedGroupList = (publicGroupList || []).map(group => {
+          const mapped = (group.monitorList || [])
+            .filter(m => {
+              const hasMapped = monitorIdMapping[m.id] !== undefined;
+              if (!hasMapped && this.verbose) {
+                console.log(`  Skipping unmapped monitor ID ${m.id} in group "${group.name}"`);
+              }
+              return hasMapped;
+            })
+            .map(m => ({ id: monitorIdMapping[m.id] }));
+          return { name: group.name, weight: group.weight, monitorList: mapped };
+        }).filter(group => group.monitorList.length > 0);
+
+        const cleanConfig = {
+          slug: config.slug,
+          title: config.title,
+          description: config.description || '',
+          theme: config.theme || 'light',
+          published: config.published !== false,
+          showTags: config.showTags || false,
+          domainNameList: config.domainNameList || [],
+          customCSS: config.customCSS || '',
+          footerText: config.footerText || null,
+          showPoweredBy: config.showPoweredBy !== false,
+          googleAnalyticsId: config.googleAnalyticsId || null,
+          icon: config.icon || '/icon.svg'
+        };
+
+        if (!targetSlugs.has(page.slug)) {
+          console.log(`Creating: ${config.title} (${page.slug})`);
+          await this.addStatusPage(targetSocket, config.title, page.slug);
+          created++;
+        } else {
+          console.log(`Updating: ${config.title} (${page.slug})`);
+          updated++;
+        }
+
+        await this.saveStatusPage(targetSocket, page.slug, cleanConfig, remappedGroupList);
+
+      } catch (err) {
+        console.error(`Error syncing status page "${page.slug}": ${err.message}`);
+        failed++;
+      }
+    }
+
+    console.log(`Status pages: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ''}`);
+  }
+
+  /**
    * Clean monitor data for syncing
    * In shallow mode: removes instance-specific fields (intervals, timeouts, etc.) 
    * In deep mode: copies ALL fields including instance-specific settings
@@ -350,7 +482,7 @@ class UptimeKumaSync {
   /**
    * Backup target instance configuration
    */
-  async backup(socket, instanceName) {
+  async backup(socket, instanceName, instanceUrl) {
     try {
       // Create backup directory if it doesn't exist
       if (!fs.existsSync(this.backupDir)) {
@@ -374,17 +506,32 @@ class UptimeKumaSync {
       // Get all tags
       const tags = await this.getTags(socket);
 
+      // Get all status pages
+      const statusPages = [];
+      if (instanceUrl) {
+        try {
+          const pageList = await this.getStatusPageList(instanceUrl);
+          for (const page of pageList) {
+            const pageData = await this.getStatusPage(instanceUrl, page.slug);
+            statusPages.push(pageData);
+          }
+        } catch (err) {
+          console.warn(`Could not backup status pages: ${err.message}`);
+        }
+      }
+
       // Create backup object
       const backup = {
         timestamp: new Date().toISOString(),
         instance: instanceName,
         monitors,
-        tags
+        tags,
+        statusPages
       };
 
       // Write to file
       fs.writeFileSync(backupFile, JSON.stringify(backup, null, 2));
-      console.log(`Backup saved: ${monitors.length} monitors, ${Object.keys(tags).length} tags\n`);
+      console.log(`Backup saved: ${monitors.length} monitors, ${Object.keys(tags).length} tags, ${statusPages.length} status pages\n`);
 
       return backupFile;
     } catch (err) {
@@ -419,7 +566,7 @@ class UptimeKumaSync {
       
       // Backup target instance before syncing
       console.log('\n=== Creating Backup ===');
-      const backupFile = await this.backup(targetSocket, this.targetName);
+      const backupFile = await this.backup(targetSocket, this.targetName, this.targetUrl);
       console.log(`✓ Backup complete: ${backupFile}`);
       
       console.log('\n=== Starting Sync ===');
@@ -675,6 +822,9 @@ class UptimeKumaSync {
         console.log(`Parent relationships updated: ${parentUpdated}, skipped: ${parentSkipped}`);
       }
       
+      // Sync status pages using the monitor ID mapping built above
+      await this.syncStatusPages(sourceSocket, targetSocket, monitorIdMapping);
+
       console.log('\n=== Sync Complete ===');
       console.log(`Created: ${created}`);
       console.log(`Updated: ${updated}`);
