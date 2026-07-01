@@ -33,8 +33,19 @@ fi
 # Create backup directory if it doesn't exist
 mkdir -p ./uptime-kuma-backups
 
+# Pull latest image if it's from a remote registry (first path segment contains a dot)
+# No-ops when image is already current; skips entirely for local images
+ensure_latest_image() {
+  local registry="${IMAGE_NAME%%/*}"
+  if [[ "$registry" == *"."* ]]; then
+    echo "Checking for image updates..."
+    $CONTAINER_CMD pull --quiet "$IMAGE_NAME" || true
+  fi
+}
+
 # Function to run a command in the container
 run_command() {
+  ensure_latest_image
   $CONTAINER_CMD run --rm \
     --network=host \
     -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
