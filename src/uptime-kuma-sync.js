@@ -300,9 +300,11 @@ class UptimeKumaSync {
           return { name: group.name, weight: group.weight, monitorList: mapped };
         }).filter(group => group.monitorList.length > 0);
 
-        // Newer Uptime Kuma uses analyticsType + analyticsCode; older used googleAnalyticsId
-        const analyticsCode = config.analyticsCode || config.googleAnalyticsId || '';
-        const analyticsType = config.analyticsType || (analyticsCode ? 'google' : '');
+        // analyticsType must be null or one of: "google","umami","plausible","matomo","rybbit"
+        // empty string fails server validation; field is analyticsId (not analyticsCode)
+        const analyticsId = config.analyticsId || config.googleAnalyticsId || null;
+        const analyticsType = config.analyticsType || (analyticsId ? 'google' : null);
+        const analyticsScriptUrl = config.analyticsScriptUrl || null;
 
         const cleanConfig = {
           slug: config.slug,
@@ -317,7 +319,8 @@ class UptimeKumaSync {
           showPoweredBy: config.showPoweredBy !== false,
           icon: config.icon || '/icon.svg',
           analyticsType,
-          analyticsCode
+          analyticsId,
+          analyticsScriptUrl
         };
 
         if (!targetSlugs.has(page.slug)) {
