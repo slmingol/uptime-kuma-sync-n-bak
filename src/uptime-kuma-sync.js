@@ -52,9 +52,15 @@ class UptimeKumaSync {
         timeout: 10000
       });
 
+      // Capture server-pushed events that arrive shortly after login
+      socket._statusPageList = [];
+      socket.on('statusPageList', (data) => {
+        socket._statusPageList = Object.values(data || {});
+      });
+
       socket.on('connect', () => {
         console.log(`Connected to ${url}`);
-        
+
         // Login
         socket.emit('login', {
           username,
@@ -63,7 +69,8 @@ class UptimeKumaSync {
         }, (res) => {
           if (res.ok) {
             console.log(`Logged in to ${url}`);
-            resolve(socket);
+            // Brief wait for server-pushed events (monitorList, statusPageList, etc.)
+            setTimeout(() => resolve(socket), 500);
           } else {
             reject(new Error(`Login failed: ${res.msg}`));
           }
@@ -255,17 +262,13 @@ class UptimeKumaSync {
   /**
    * Sync all status pages from source to target.
    * Must be called after monitor sync so monitorIdMapping is fully populated.
+   * Uses statusPageList captured from the socket event emitted after login.
    */
   async syncStatusPages(sourceSocket, targetSocket, monitorIdMapping) {
     console.log('\n=== Syncing Status Pages ===');
 
-    let sourcePages;
-    try {
-      sourcePages = await this.getStatusPageList(this.sourceUrl);
-    } catch (err) {
-      console.warn(`Could not fetch source status pages: ${err.message}`);
-      return;
-    }
+    // statusPageList is captured from the server-pushed socket event at connect time
+    const sourcePages = sourceSocket._statusPageList || [];
 
     if (!sourcePages.length) {
       console.log('No status pages found in source');
@@ -274,13 +277,7 @@ class UptimeKumaSync {
 
     console.log(`Found ${sourcePages.length} status page(s) in source`);
 
-    let targetPages = [];
-    try {
-      targetPages = await this.getStatusPageList(this.targetUrl);
-    } catch (err) {
-      targetPages = [];
-    }
-    const targetSlugs = new Set(targetPages.map(p => p.slug));
+    const targetSlugs = new Set((targetSocket._statusPageList || []).map(p => p.slug));
 
     let created = 0, updated = 0, failed = 0;
 
@@ -506,17 +503,15 @@ class UptimeKumaSync {
       // Get all tags
       const tags = await this.getTags(socket);
 
-      // Get all status pages
+      // Get all status pages (list captured from statusPageList socket event at login)
       const statusPages = [];
-      if (instanceUrl) {
+      const pageList = socket._statusPageList || [];
+      for (const page of pageList) {
         try {
-          const pageList = await this.getStatusPageList(instanceUrl);
-          for (const page of pageList) {
-            const pageData = await this.getStatusPage(instanceUrl, page.slug);
-            statusPages.push(pageData);
-          }
+          const pageData = await this.getStatusPage(instanceUrl, page.slug);
+          statusPages.push(pageData);
         } catch (err) {
-          console.warn(`Could not backup status pages: ${err.message}`);
+          console.warn(`Could not backup status page "${page.slug}": ${err.message}`);
         }
       }
 

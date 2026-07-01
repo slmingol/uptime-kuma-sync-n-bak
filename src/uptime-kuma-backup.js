@@ -29,9 +29,15 @@ class UptimeKumaBackup {
         reconnection: false
       });
 
+      // Capture server-pushed events that arrive shortly after login
+      socket._statusPageList = [];
+      socket.on('statusPageList', (data) => {
+        socket._statusPageList = Object.values(data || {});
+      });
+
       socket.on('connect', () => {
         console.log(`Connected to ${url}`);
-        
+
         socket.emit('login', {
           username,
           password,
@@ -39,7 +45,8 @@ class UptimeKumaBackup {
         }, (res) => {
           if (res.ok) {
             console.log(`Logged in to ${url}`);
-            resolve(socket);
+            // Brief wait for server-pushed events (monitorList, statusPageList, etc.)
+            setTimeout(() => resolve(socket), 500);
           } else {
             reject(new Error(`Login failed: ${res.msg}`));
           }
@@ -151,19 +158,20 @@ class UptimeKumaBackup {
       const tags = await this.getTags(socket);
       console.log(`✓ ${Object.keys(tags).length} tags`);
 
-      // Get all status pages
+      // Get all status pages (list captured from statusPageList socket event at login)
       console.log('\nFetching status pages...');
       const statusPages = [];
-      try {
-        const pageList = await this.getStatusPageList(this.url);
-        for (const page of pageList) {
+      const pageList = socket._statusPageList || [];
+      for (const page of pageList) {
+        try {
           const pageData = await this.getStatusPage(this.url, page.slug);
           statusPages.push(pageData);
           console.log(`✓ ${pageData.config?.title || page.slug}`);
+        } catch (err) {
+          console.warn(`Could not fetch status page "${page.slug}": ${err.message}`);
         }
-      } catch (err) {
-        console.warn(`Could not fetch status pages: ${err.message}`);
       }
+      if (!pageList.length) console.log('No status pages found');
 
       // Create backup object
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
