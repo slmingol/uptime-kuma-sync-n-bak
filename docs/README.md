@@ -18,13 +18,15 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 
 - ✅ Syncs monitors (HTTP, TCP, Ping, etc.)
 - ✅ Syncs groups/tags with color coding
+- ✅ **Syncs status pages** - Groups, monitor membership, and page config replicated across instances
 - ✅ **Shallow & Deep Sync Modes** - Choose to preserve or copy instance-specific settings
 - ✅ Preserves instance-specific settings (intervals, timeouts, TTLs) in shallow mode
 - ✅ Updates existing monitors or creates new ones
 - ✅ Maps tags/groups correctly between instances
-- ✅ **Parent/Group relationships** - Correctly maintains monitor hierarchies (191 monitors)
+- ✅ **Parent/Group relationships** - Correctly maintains monitor hierarchies
 - ✅ **Tag associations** - Uses dedicated `addMonitorTag` API for reliable tag syncing, prevents duplicates
 - ✅ **Named instance configuration** - Reference instances by name
+- ✅ **Makefile** - Convenient `make` targets for all common operations
 - ✅ **Automatic backup before sync** - Creates a timestamped backup of the target instance
 - ✅ **Standalone backup tool** - Backup any instance on demand
 - ✅ **Restore tool** - Restore from any backup file
@@ -38,16 +40,16 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 
 **What syncs:**
 - Monitor names, types, URLs, hostnames
-- Basic configuration (auth, headers, etc.)
+- Basic configuration (auth, headers, accepted status codes, etc.)
 - **Tags/groups** (cleans duplicates, exact match from source)
 - **Parent/group hierarchies**
+- **Status pages** (groups, monitor membership, page config)
 
 **What stays on target:**
 - Check intervals (`interval`, `retryInterval`, `resendInterval`)
 - Timeouts and retry limits (`timeout`, `maxretries`, `maxredirects`)
 - DNS resolution settings (`dns_resolve_type`, `dns_resolve_server`)
 - Notification settings (`notificationIDList`)
-- Accept status codes (`accepted_statuscodes`)
 
 **Example use case:** Production→Staging sync where staging checks less frequently
 
@@ -197,6 +199,27 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 ./scripts/uptime-kuma-docker.sh help                                    # Show help
 ```
 
+## Makefile (Quickest Way to Run)
+
+A `Makefile` wraps the Docker script for the most common operations. Run `make help` to see all targets.
+
+```bash
+make list                        # List configured instances
+make sync                        # Sync primary → secondary (shallow)
+make sync-deep                   # Sync primary → secondary (deep, all settings)
+make diff                        # Diff primary vs secondary (full detail)
+make diff-tldr                   # Diff primary vs secondary (summary)
+make backup                      # Backup primary instance
+make restore                     # Restore (prompts for file and target)
+make build                       # Build the Docker image locally
+make shell                       # Drop into an interactive container shell
+```
+
+Override source/target instances:
+```bash
+make sync SOURCE=secondary TARGET=primary
+```
+
 ### Docker Compose (For Scheduled Backups)
 
 The `docker-compose.yml` file includes a service for scheduled backups:
@@ -314,12 +337,14 @@ node src/uptime-kuma-sync.js primary secondary
 
 **What gets synced:**
 - Monitor names and types
-- URLs, hostnames, and ports  
+- URLs, hostnames, and ports
 - Descriptions and keywords
+- Accepted status codes
 - Tags/groups (with colors)
 - Headers, body, method
 - Authentication settings
 - Certificate settings
+- Status pages (groups, monitor membership, page config)
 
 **What is preserved** on the target:
 - Check intervals
@@ -328,7 +353,6 @@ node src/uptime-kuma-sync.js primary secondary
 - Max retries
 - Notification settings
 - DNS settings
-- Accepted status codes
 
 **Use cases:**
 - Syncing monitors to a backup instance with different check frequencies
@@ -596,7 +620,6 @@ Define all your instances in one place:
       "timeout",
       "upside_down",
       "maxredirects",
-      "accepted_statuscodes",
       "dns_resolve_type",
       "dns_resolve_server",
       "notificationIDList"
@@ -641,6 +664,7 @@ These names appear in:
 - URL/hostname
 - Port
 - Description
+- Accepted status codes
 - Tags/groups (with colors)
 - Headers
 - Body
@@ -648,16 +672,16 @@ These names appear in:
 - Authentication settings
 - Certificate settings
 - Keywords
+- Status pages (groups, monitor membership, page config)
 
 ### NOT Synced in Shallow Mode (Instance-Specific)
 - Check interval
-- Retry interval  
+- Retry interval
 - Resend interval
 - Max retries
 - Timeout
 - Status inversion (upside down)
 - Max redirects
-- Accepted status codes
 - DNS settings
 - Notification settings
 
@@ -691,6 +715,7 @@ Remove fields from the `excludedFields` array to sync them between instances.
 Backups are JSON files containing:
 - All monitors with complete configuration
 - All tags/groups with colors
+- All status pages (config, groups, and monitor membership)
 - Timestamp and instance information
 
 ### Backup Naming
@@ -810,6 +835,7 @@ Example:
 - **sync-uptime.sh** - Convenience wrapper for syncing
 - **backup-uptime.sh** - Convenience wrapper for backups
 - **restore-uptime.sh** - Convenience wrapper for restoring
+- **diff-uptime.sh** - Convenience wrapper for diffing instances
 
 ### Docker Scripts
 - **uptime-kuma-docker.sh** - All-in-one Docker wrapper (recommended)
