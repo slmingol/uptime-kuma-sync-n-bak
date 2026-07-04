@@ -82,6 +82,18 @@ case "$1" in
     run_command node src/uptime-kuma-sync.js "$SOURCE" "$TARGET" $FLAGS
     ;;
   
+  monitors)
+    if [ -z "$2" ]; then
+      echo "Usage: $0 monitors <instance-name> [--tldr]"
+      exit 1
+    fi
+    INSTANCE="$2"
+    shift 2
+    FLAGS="$@"
+    echo "Listing monitors for $INSTANCE..."
+    run_command node src/uptime-kuma-list.js "$INSTANCE" $FLAGS
+    ;;
+
   diff)
     if [ -z "$2" ] || [ -z "$3" ]; then
       echo "Usage: $0 diff <source-instance> <target-instance> [--tldr]"
@@ -134,6 +146,7 @@ Environment Variables:
 
 Commands:
   list                              List available instances
+  monitors <instance> [--tldr]      List monitors in an instance (grouped by parent)
   backup <instance>                 Backup an instance
   sync <source> <target>            Sync from source to target instance
   diff <source> <target> [--tldr]   Compare monitors between two instances
