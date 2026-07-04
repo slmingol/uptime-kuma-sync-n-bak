@@ -32,7 +32,6 @@ class UptimeKumaSync {
       'timeout',
       'upside_down',
       'maxredirects',
-      'accepted_statuscodes',
       'dns_resolve_type',
       'dns_resolve_server',
       'notificationIDList'
@@ -351,25 +350,10 @@ class UptimeKumaSync {
   cleanMonitorData(monitor) {
     const cleaned = { ...monitor };
     
-    // Array fields that should be reset to empty arrays instead of deleted
-    const arrayFields = ['accepted_statuscodes'];  // notificationIDList is actually an object, not an array
-    
     // In shallow mode, remove excluded fields to preserve target's instance-specific settings
     // In deep mode, keep all fields - we want an exact copy
     if (this.syncMode === 'shallow') {
-      // Remove excluded fields (or reset to empty array if it's an array field)
-      this.excludedFields.forEach(field => {
-        if (arrayFields.includes(field)) {
-          // Special handling for accepted_statuscodes - use sensible default
-          if (field === 'accepted_statuscodes') {
-            cleaned[field] = monitor.type === 'http' || monitor.type === 'keyword' ? ['200-299'] : [];
-          } else {
-            cleaned[field] = [];
-          }
-        } else {
-          delete cleaned[field];
-        }
-      });
+      this.excludedFields.forEach(field => delete cleaned[field]);
     }
     
     // Always ensure critical fields exist with proper defaults (applies to both modes)
@@ -956,7 +940,6 @@ function defaultExcludedFields() {
     'timeout',            // Request timeout
     'upside_down',        // Invert status
     'maxredirects',       // Max redirects
-    'accepted_statuscodes', // Accepted status codes
     'dns_resolve_type',   // DNS resolve type
     'dns_resolve_server', // DNS server
     'notificationIDList'  // Notification settings (instance-specific)
