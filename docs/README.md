@@ -189,10 +189,13 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 
 ```bash
 ./scripts/uptime-kuma-docker.sh list                                    # List configured instances
+./scripts/uptime-kuma-docker.sh monitors <instance>                     # List monitors grouped by parent
+./scripts/uptime-kuma-docker.sh monitors <instance> --tldr              # Monitor count by group and type
 ./scripts/uptime-kuma-docker.sh backup <instance>                       # Backup an instance
 ./scripts/uptime-kuma-docker.sh sync <source> <target>                  # Sync instances (shallow)
 ./scripts/uptime-kuma-docker.sh sync <source> <target> --deep           # Sync with all settings
 ./scripts/uptime-kuma-docker.sh diff <source> <target>                  # Compare instances
+./scripts/uptime-kuma-docker.sh diff <source> <target> --tldr           # Compare instances (summary)
 ./scripts/uptime-kuma-docker.sh restore <backup-file> [instance]        # Restore from backup
 ./scripts/uptime-kuma-docker.sh build                                   # Build the image
 ./scripts/uptime-kuma-docker.sh shell                                   # Interactive shell
@@ -205,6 +208,8 @@ A `Makefile` wraps the Docker script for the most common operations. Run `make h
 
 ```bash
 make list                        # List configured instances
+make monitors                    # List monitors in SOURCE grouped by parent
+make monitors-tldr               # Monitor count by group and type for SOURCE
 make sync                        # Sync primary → secondary (shallow)
 make sync-deep                   # Sync primary → secondary (deep, all settings)
 make diff                        # Diff primary vs secondary (full detail)
@@ -830,6 +835,8 @@ Example:
 - **uptime-kuma-sync.js** - Sync monitors between two instances (auto-backup included)
 - **uptime-kuma-backup.js** - Standalone backup tool for any instance
 - **uptime-kuma-restore.js** - Restore monitors from a backup file
+- **uptime-kuma-list.js** - List monitors in an instance grouped by parent group
+- **uptime-kuma-diff.js** - Compare monitors between two instances
 
 ### Bash Wrapper Scripts
 - **sync-uptime.sh** - Convenience wrapper for syncing
