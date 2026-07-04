@@ -92,7 +92,7 @@ case "$1" in
     shift 3
     FLAGS="$@"
     echo "Comparing $SOURCE to $TARGET..."
-    run_command ./diff-uptime.sh "$SOURCE" "$TARGET" $FLAGS
+    run_command node src/uptime-kuma-diff.js "$SOURCE" "$TARGET" $FLAGS
     ;;
   
   restore)
