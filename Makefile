@@ -51,14 +51,14 @@ help:
 # Daemon
 daemon:
 	@touch uptime-kuma-sync-history.json .uptime-kuma-sync-state.json
-	@$(COMPOSE) -f docker/docker-compose.yml up -d uptime-kuma-sync-daemon
+	@$(COMPOSE) up -d uptime-kuma-sync-daemon
 	@printf "\033[1;32mDaemon started — UI at http://localhost:8089\033[0m\n"
 
 daemon-stop:
-	@$(COMPOSE) -f docker/docker-compose.yml stop uptime-kuma-sync-daemon
+	@$(COMPOSE) stop uptime-kuma-sync-daemon
 
 daemon-logs:
-	@$(COMPOSE) -f docker/docker-compose.yml logs -f uptime-kuma-sync-daemon
+	@$(COMPOSE) logs -f uptime-kuma-sync-daemon
 
 # Container management
 build:
