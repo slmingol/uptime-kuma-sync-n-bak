@@ -16,6 +16,7 @@ services:
   # mounts them as files rather than directories.
   uptime-kuma-sync-daemon:
     image: ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest
+    pull_policy: always
     container_name: uptime-kuma-sync-daemon
     command: node src/uptime-kuma-daemon.js
     ports:
