@@ -1,5 +1,9 @@
 SCRIPT := ./scripts/uptime-kuma-docker.sh
 
+# Detect container engine (docker preferred, podman fallback)
+DOCKER  := $(shell command -v docker 2>/dev/null || command -v podman 2>/dev/null)
+COMPOSE := $(DOCKER) compose
+
 # Instance defaults — override on the command line: make sync SOURCE=primary TARGET=secondary
 SOURCE  ?= primary
 TARGET  ?= secondary
@@ -47,14 +51,14 @@ help:
 # Daemon
 daemon:
 	@touch uptime-kuma-sync-history.json .uptime-kuma-sync-state.json
-	@docker compose -f docker/docker-compose.yml up -d uptime-kuma-sync-daemon
+	@$(COMPOSE) -f docker/docker-compose.yml up -d uptime-kuma-sync-daemon
 	@printf "\033[1;32mDaemon started — UI at http://localhost:8089\033[0m\n"
 
 daemon-stop:
-	@docker compose -f docker/docker-compose.yml stop uptime-kuma-sync-daemon
+	@$(COMPOSE) -f docker/docker-compose.yml stop uptime-kuma-sync-daemon
 
 daemon-logs:
-	@docker compose -f docker/docker-compose.yml logs -f uptime-kuma-sync-daemon
+	@$(COMPOSE) -f docker/docker-compose.yml logs -f uptime-kuma-sync-daemon
 
 # Container management
 build:
