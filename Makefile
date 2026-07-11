@@ -5,7 +5,7 @@ SOURCE  ?= primary
 TARGET  ?= secondary
 
 .PHONY: help list monitors monitors-tldr build shell \
-        sync sync-deep sync-force diff diff-tldr backup restore \
+        sync sync-deep sync-force sync-prune sync-prune-dry sync-bidir diff diff-tldr backup restore \
         test
 
 help:
@@ -19,6 +19,9 @@ help:
 	@printf "  \033[1;32mmake sync\033[0m                         Incremental shallow sync SOURCE → TARGET\n"
 	@printf "  \033[1;32mmake sync-deep\033[0m                    Incremental deep sync SOURCE → TARGET\n"
 	@printf "  \033[1;32mmake sync-force\033[0m                   Full sync SOURCE → TARGET (ignore state)\n"
+	@printf "  \033[1;32mmake sync-prune\033[0m                   Sync + delete target monitors absent from SOURCE\n"
+	@printf "  \033[1;32mmake sync-prune-dry\033[0m               Preview what sync-prune would delete\n"
+	@printf "  \033[1;32mmake sync-bidir\033[0m                   Bidirectional sync (source wins conflicts)\n"
 	@printf "\n\033[1;33m DIFF\033[0m\n"
 	@printf "  \033[1;32mmake diff\033[0m                         Full diff SOURCE vs TARGET\n"
 	@printf "  \033[1;32mmake diff-tldr\033[0m                    Summary diff SOURCE vs TARGET\n"
@@ -61,6 +64,15 @@ sync-deep:
 
 sync-force:
 	@$(SCRIPT) sync $(SOURCE) $(TARGET) --force
+
+sync-prune:
+	@$(SCRIPT) sync $(SOURCE) $(TARGET) --prune
+
+sync-prune-dry:
+	@$(SCRIPT) sync $(SOURCE) $(TARGET) --prune --dry-run
+
+sync-bidir:
+	@$(SCRIPT) sync $(SOURCE) $(TARGET) --bidirectional
 
 diff:
 	@$(SCRIPT) diff $(SOURCE) $(TARGET)

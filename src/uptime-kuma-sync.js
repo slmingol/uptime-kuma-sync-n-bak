@@ -27,6 +27,9 @@ class UptimeKumaSync {
     this.backupDir = config.backupDir || './uptime-kuma-backups';
     this.syncMode = config.syncMode || 'shallow'; // 'shallow' or 'deep'
     this.incremental = config.incremental !== false; // default true; --force disables
+    this.prune = config.prune || false;             // delete target monitors absent from source
+    this.dryRun = config.dryRun || false;           // preview destructive actions without applying
+    this.bidirectional = config.bidirectional || false; // also sync target-only monitors back to source
     this.verbose = config.verbose || false; // Enable detailed logging
     this.excludedFields = config.excludedFields || [
       'interval',
@@ -344,6 +347,158 @@ class UptimeKumaSync {
     }
 
     console.log(`Status pages: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ''}`);
+  }
+
+  /**
+   * Delete a monitor from an instance
+   */
+  async deleteMonitor(socket, monitorId) {
+    return new Promise((resolve, reject) => {
+      socket.emit('deleteMonitor', monitorId, (res) => {
+        if (res.ok) resolve();
+        else reject(new Error(`Failed to delete monitor ${monitorId}: ${res.msg}`));
+      });
+    });
+  }
+
+  /**
+   * Delete monitors on target that no longer exist in source.
+   * Respects --dry-run: logs what would be deleted without acting.
+   * Groups are skipped — group membership is determined by their children.
+   */
+  async pruneMonitors(targetSocket, sourceMonitorList, targetMonitorList) {
+    console.log('\n=== Pruning Stale Monitors ===');
+    const sourceKeys = new Set(sourceMonitorList.map(m => `${m.name}::${m.type}`));
+    const toDelete = targetMonitorList.filter(m => m.type !== 'group' && !sourceKeys.has(`${m.name}::${m.type}`));
+
+    if (!toDelete.length) {
+      console.log('Nothing to prune — target has no monitors absent from source');
+      return;
+    }
+
+    if (this.dryRun) {
+      console.log(`Dry-run: would delete ${toDelete.length} monitor(s) from target:`);
+      toDelete.forEach(m => console.log(`  - [${m.id}] ${m.name} [${m.type}]`));
+      return;
+    }
+
+    let pruned = 0, pruneFailed = 0;
+    for (const m of toDelete) {
+      try {
+        console.log(`Deleting: ${m.name} [${m.type}]`);
+        await this.deleteMonitor(targetSocket, m.id);
+        pruned++;
+      } catch (err) {
+        console.error(`  Failed to delete ${m.name}: ${err.message}`);
+        pruneFailed++;
+      }
+    }
+    console.log(`Pruned: ${pruned}${pruneFailed ? `, failed: ${pruneFailed}` : ''}`);
+  }
+
+  /**
+   * Second pass of bidirectional sync: copy monitors that exist only on target to source.
+   * Source wins all conflicts — this only creates/updates monitors absent from source.
+   * reverseIdMapping maps target IDs → source IDs for parent remapping.
+   */
+  async syncBidirectionalPass(sourceSocket, targetSocket, sourceMonitorList, targetMonitorList, reverseIdMapping, tagMapping) {
+    console.log('\n=== Bidirectional Pass (target → source) ===');
+    const sourceKeys = new Set(sourceMonitorList.map(m => `${m.name}::${m.type}`));
+    const targetOnly = targetMonitorList.filter(m => m.type !== 'group' && !sourceKeys.has(`${m.name}::${m.type}`));
+
+    if (!targetOnly.length) {
+      console.log('Nothing to sync — no monitors exist only on target');
+      return;
+    }
+
+    console.log(`Found ${targetOnly.length} monitor(s) only on target — syncing to source`);
+
+    // Refresh source monitor list for accurate matching after first pass
+    const freshSource = await this.getMonitors(sourceSocket);
+    const freshSourceList = Object.values(freshSource);
+    const sourceByKey = {};
+    for (const m of freshSourceList) sourceByKey[`${m.name}::${m.type}`] = m;
+
+    let created = 0, updated = 0, failed = 0;
+    const monitorsWithParent = [];
+
+    for (const tm of targetOnly) {
+      try {
+        const fullMonitor = await this.getMonitor(targetSocket, tm.id);
+        const sourceId = tm.id;
+        const originalParent = fullMonitor.parent;
+        const cleaned = this.cleanMonitorData(fullMonitor);
+        delete cleaned.parent;
+
+        // Remap tags using inverse tag mapping (target tag_id → source tag_id)
+        const monitorTags = [];
+        if (cleaned.tags && Array.isArray(cleaned.tags)) {
+          for (const tag of cleaned.tags) {
+            const sourcTagId = tagMapping ? Object.entries(tagMapping).find(([s, t]) => t === tag.tag_id)?.[0] : null;
+            if (sourcTagId) monitorTags.push({ tag_id: parseInt(sourcTagId), value: tag.value || '' });
+          }
+        }
+        delete cleaned.tags;
+
+        const existing = sourceByKey[`${tm.name}::${tm.type}`];
+        let targetMonitorId;
+
+        if (existing) {
+          console.log(`Updating on source: ${cleaned.name}`);
+          cleaned.id = existing.id;
+          await this.updateMonitor(sourceSocket, cleaned);
+          targetMonitorId = existing.id;
+          updated++;
+        } else {
+          console.log(`Creating on source: ${cleaned.name}`);
+          const minimalMonitor = {
+            name: cleaned.name,
+            type: cleaned.type,
+            active: true,
+            notificationIDList: {},
+            accepted_statuscodes: cleaned.accepted_statuscodes || ['200-299'],
+            conditions: cleaned.conditions || []
+          };
+          if (cleaned.url) minimalMonitor.url = cleaned.url;
+          if (cleaned.hostname) minimalMonitor.hostname = cleaned.hostname;
+          if (cleaned.port) minimalMonitor.port = cleaned.port;
+          targetMonitorId = await this.saveMonitor(sourceSocket, minimalMonitor);
+          cleaned.id = targetMonitorId;
+          await this.updateMonitor(sourceSocket, cleaned);
+          created++;
+        }
+
+        // Add tags
+        for (const tag of monitorTags) {
+          try { await this.addMonitorTag(sourceSocket, tag.tag_id, targetMonitorId, tag.value); } catch (_) {}
+        }
+
+        // Track parent for second pass
+        if (originalParent) {
+          const sourcParentId = reverseIdMapping[originalParent];
+          if (sourcParentId) {
+            monitorsWithParent.push({ targetId: targetMonitorId, sourceParentId: sourcParentId, monitor: cleaned });
+          }
+        }
+      } catch (err) {
+        console.error(`Error syncing ${tm.name} to source: ${err.message}`);
+        failed++;
+      }
+    }
+
+    // Remap parents
+    for (const { targetId, sourceParentId, monitor } of monitorsWithParent) {
+      try {
+        monitor.id = targetId;
+        monitor.parent = sourceParentId;
+        delete monitor.tags;
+        await this.updateMonitor(sourceSocket, monitor);
+      } catch (err) {
+        console.error(`Error setting parent for ${monitor.name}: ${err.message}`);
+      }
+    }
+
+    console.log(`Bidirectional pass — Created: ${created}, Updated: ${updated}${failed ? `, Failed: ${failed}` : ''}`);
   }
 
   /**
@@ -879,6 +1034,22 @@ class UptimeKumaSync {
       // Sync status pages using the monitor ID mapping built above
       await this.syncStatusPages(sourceSocket, targetSocket, monitorIdMapping);
 
+      // Build reverse mapping (target ID → source ID) for bidirectional pass
+      const reverseIdMapping = {};
+      for (const [srcId, tgtId] of Object.entries(monitorIdMapping)) {
+        reverseIdMapping[tgtId] = parseInt(srcId);
+      }
+
+      // Prune: delete target monitors absent from source (mutually exclusive with bidirectional)
+      if (this.prune) {
+        await this.pruneMonitors(targetSocket, monitorList, targetMonitorList);
+      }
+
+      // Bidirectional: copy target-only monitors back to source
+      if (this.bidirectional) {
+        await this.syncBidirectionalPass(sourceSocket, targetSocket, monitorList, targetMonitorList, reverseIdMapping, tagMapping);
+      }
+
       // Persist incremental state (merge new hashes with any unchanged ones)
       syncState[stateKey] = {
         lastSync: new Date().toISOString(),
@@ -984,6 +1155,9 @@ function loadConfig(sourceName, targetName, options = {}) {
       backupDir: fileConfig.backup?.directory || './uptime-kuma-backups',
       syncMode: options.syncMode || fileConfig.sync?.mode || 'shallow',
       incremental: options.incremental !== false,
+      prune: options.prune || false,
+      dryRun: options.dryRun || false,
+      bidirectional: options.bidirectional || false,
       verbose: options.verbose || false,
       excludedFields: fileConfig.sync?.excludedFields || defaultExcludedFields()
     };
@@ -1002,6 +1176,9 @@ function loadConfig(sourceName, targetName, options = {}) {
     backupDir: process.env.BACKUP_DIR || './uptime-kuma-backups',
     syncMode: options.syncMode || process.env.SYNC_MODE || 'shallow',
     incremental: options.incremental !== false,
+    prune: options.prune || false,
+    dryRun: options.dryRun || false,
+    bidirectional: options.bidirectional || false,
     verbose: options.verbose || false,
     excludedFields: defaultExcludedFields()
   };
@@ -1044,6 +1221,9 @@ Options:
   --deep           Deep sync mode - copy ALL settings including intervals, timeouts, etc.
   --shallow        Shallow sync mode (default) - preserve instance-specific settings
   --force          Full sync - ignore incremental state, update all monitors
+  --prune          Delete monitors on target that no longer exist in source
+  --dry-run        Preview --prune deletions without applying them
+  --bidirectional  Also sync monitors only on target back to source (conflicts: source wins)
   -v, --verbose    Show detailed tag sync operations and debugging information
 
 Sync Modes:
@@ -1090,6 +1270,14 @@ if (require.main === module) {
   // Parse flags
   const verbose = args.includes('--verbose') || args.includes('-v');
   const incremental = !args.includes('--force');
+  const prune = args.includes('--prune');
+  const dryRun = args.includes('--dry-run');
+  const bidirectional = args.includes('--bidirectional');
+
+  if (prune && bidirectional) {
+    console.error('Error: --prune and --bidirectional are mutually exclusive');
+    process.exit(1);
+  }
 
   // Filter out mode flags from args to get instance names
   const instanceArgs = args.filter(arg => !arg.startsWith('--') && !arg.startsWith('-'));
@@ -1097,7 +1285,7 @@ if (require.main === module) {
   const targetName = instanceArgs[1];
 
   // Configuration
-  const config = loadConfig(sourceName, targetName, { syncMode, verbose, incremental });
+  const config = loadConfig(sourceName, targetName, { syncMode, verbose, incremental, prune, dryRun, bidirectional });
 
   // Show warning if using default values
   if (!sourceName && !process.env.SOURCE_UPTIME_URL) {
