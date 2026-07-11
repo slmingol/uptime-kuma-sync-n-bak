@@ -148,7 +148,8 @@ Commands:
   list                              List available instances
   monitors <instance> [--tldr]      List monitors in an instance (grouped by parent)
   backup <instance>                 Backup an instance
-  sync <source> <target>            Sync from source to target instance
+  sync <source> <target>            Incremental sync from source to target
+  sync <source> <target> --force    Full sync (ignore incremental state)
   diff <source> <target> [--tldr]   Compare monitors between two instances
   restore <backup-file> [instance]  Restore from backup
   build                             Build the container image locally

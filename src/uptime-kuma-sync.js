@@ -7,9 +7,12 @@
  */
 
 const axios = require('axios');
+const crypto = require('crypto');
 const io = require('socket.io-client');
 const fs = require('fs');
 const path = require('path');
+
+const STATE_FILE = '.uptime-kuma-sync-state.json';
 
 class UptimeKumaSync {
   constructor(config) {
@@ -23,6 +26,7 @@ class UptimeKumaSync {
     this.targetName = config.targetName || 'target';
     this.backupDir = config.backupDir || './uptime-kuma-backups';
     this.syncMode = config.syncMode || 'shallow'; // 'shallow' or 'deep'
+    this.incremental = config.incremental !== false; // default true; --force disables
     this.verbose = config.verbose || false; // Enable detailed logging
     this.excludedFields = config.excludedFields || [
       'interval',
@@ -343,8 +347,37 @@ class UptimeKumaSync {
   }
 
   /**
+   * Compute a short hash of a monitor's syncable fields for change detection.
+   * Uses the raw monitorList entry (no extra socket call needed).
+   */
+  computeMonitorHash(monitor) {
+    const skip = new Set([
+      'id', 'userId', 'created_date', 'updated_date', 'docker_host',
+      'parent', 'path', 'pathName', 'path_name', 'childrenIDs',
+      'children_i_ds', 'childrenIds', 'children', 'active'
+    ]);
+    const relevant = {};
+    for (const [k, v] of Object.entries(monitor)) {
+      if (!skip.has(k) && v !== undefined) relevant[k] = v;
+    }
+    const stable = JSON.stringify(relevant, Object.keys(relevant).sort());
+    return crypto.createHash('md5').update(stable).digest('hex').slice(0, 8);
+  }
+
+  loadSyncState() {
+    if (fs.existsSync(STATE_FILE)) {
+      try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (_) {}
+    }
+    return {};
+  }
+
+  saveSyncState(state) {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  }
+
+  /**
    * Clean monitor data for syncing
-   * In shallow mode: removes instance-specific fields (intervals, timeouts, etc.) 
+   * In shallow mode: removes instance-specific fields (intervals, timeouts, etc.)
    * In deep mode: copies ALL fields including instance-specific settings
    */
   cleanMonitorData(monitor) {
@@ -576,6 +609,25 @@ class UptimeKumaSync {
       const targetMonitors = await this.getMonitors(targetSocket);
       const targetMonitorList = Object.values(targetMonitors);
       
+      // Load incremental state
+      const stateKey = `${this.sourceName}->${this.targetName}`;
+      const syncState = this.loadSyncState();
+      const pairState = syncState[stateKey] || { monitorHashes: {} };
+      const newHashes = {};
+      const useIncremental = this.incremental;
+
+      if (useIncremental && Object.keys(pairState.monitorHashes).length > 0) {
+        console.log(`Incremental sync: comparing against last sync (${pairState.lastSync || 'unknown'})`);
+      } else if (!useIncremental) {
+        console.log('Full sync forced (--force)');
+      }
+
+      // Build target lookup by name+type for fast matching
+      const targetByKey = {};
+      for (const m of targetMonitorList) {
+        targetByKey[`${m.name}::${m.type}`] = m;
+      }
+
       // Sync each monitor - First pass (sync without parent relationships)
       let created = 0;
       let updated = 0;
@@ -583,10 +635,25 @@ class UptimeKumaSync {
       const failedMonitors = [];
       const monitorIdMapping = {}; // Maps source monitor IDs to target monitor IDs
       const monitorsWithParent = []; // Track monitors that have parent relationships
-      
+
       for (const sourceMonitor of monitorList) {
         let fullMonitor;
         try {
+          // Incremental: skip monitors whose hash hasn't changed and exist on target
+          const monitorKey = `${sourceMonitor.name}::${sourceMonitor.type}`;
+          const hash = this.computeMonitorHash(sourceMonitor);
+          newHashes[monitorKey] = hash;
+
+          if (useIncremental && pairState.monitorHashes[monitorKey] === hash) {
+            const targetMatch = targetByKey[monitorKey];
+            if (targetMatch) {
+              monitorIdMapping[sourceMonitor.id] = targetMatch.id;
+              if (this.verbose) console.log(`Skipping (unchanged): ${sourceMonitor.name}`);
+              skipped++;
+              continue;
+            }
+          }
+
           // Get full monitor details
           fullMonitor = await this.getMonitor(sourceSocket, sourceMonitor.id);
           
@@ -812,10 +879,17 @@ class UptimeKumaSync {
       // Sync status pages using the monitor ID mapping built above
       await this.syncStatusPages(sourceSocket, targetSocket, monitorIdMapping);
 
+      // Persist incremental state (merge new hashes with any unchanged ones)
+      syncState[stateKey] = {
+        lastSync: new Date().toISOString(),
+        monitorHashes: { ...pairState.monitorHashes, ...newHashes }
+      };
+      this.saveSyncState(syncState);
+
       console.log('\n=== Sync Complete ===');
       console.log(`Created: ${created}`);
       console.log(`Updated: ${updated}`);
-      console.log(`Skipped: ${skipped}`);
+      console.log(`Unchanged (skipped): ${skipped}`);
       console.log(`Total: ${monitorList.length}`);
       
       // Report failed monitors if any
@@ -909,6 +983,7 @@ function loadConfig(sourceName, targetName, options = {}) {
       targetName: targetName,
       backupDir: fileConfig.backup?.directory || './uptime-kuma-backups',
       syncMode: options.syncMode || fileConfig.sync?.mode || 'shallow',
+      incremental: options.incremental !== false,
       verbose: options.verbose || false,
       excludedFields: fileConfig.sync?.excludedFields || defaultExcludedFields()
     };
@@ -926,6 +1001,7 @@ function loadConfig(sourceName, targetName, options = {}) {
     targetName: process.env.TARGET_NAME || 'target',
     backupDir: process.env.BACKUP_DIR || './uptime-kuma-backups',
     syncMode: options.syncMode || process.env.SYNC_MODE || 'shallow',
+    incremental: options.incremental !== false,
     verbose: options.verbose || false,
     excludedFields: defaultExcludedFields()
   };
@@ -967,6 +1043,7 @@ Options:
   -l, --list       List available instances
   --deep           Deep sync mode - copy ALL settings including intervals, timeouts, etc.
   --shallow        Shallow sync mode (default) - preserve instance-specific settings
+  --force          Full sync - ignore incremental state, update all monitors
   -v, --verbose    Show detailed tag sync operations and debugging information
 
 Sync Modes:
@@ -1009,17 +1086,18 @@ if (require.main === module) {
   } else if (args.includes('--shallow')) {
     syncMode = 'shallow';
   }
-  
-  // Parse verbose flag
+
+  // Parse flags
   const verbose = args.includes('--verbose') || args.includes('-v');
-  
+  const incremental = !args.includes('--force');
+
   // Filter out mode flags from args to get instance names
   const instanceArgs = args.filter(arg => !arg.startsWith('--') && !arg.startsWith('-'));
   const sourceName = instanceArgs[0];
   const targetName = instanceArgs[1];
 
   // Configuration
-  const config = loadConfig(sourceName, targetName, { syncMode, verbose });
+  const config = loadConfig(sourceName, targetName, { syncMode, verbose, incremental });
 
   // Show warning if using default values
   if (!sourceName && !process.env.SOURCE_UPTIME_URL) {

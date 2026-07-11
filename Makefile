@@ -5,7 +5,7 @@ SOURCE  ?= primary
 TARGET  ?= secondary
 
 .PHONY: help list monitors monitors-tldr build shell \
-        sync sync-deep diff diff-tldr backup restore \
+        sync sync-deep sync-force diff diff-tldr backup restore \
         test
 
 help:
@@ -16,8 +16,9 @@ help:
 	@printf "  \033[1;32mmake monitors\033[0m                     List monitors in SOURCE (grouped)\n"
 	@printf "  \033[1;32mmake monitors-tldr\033[0m                Summary of monitors in SOURCE\n"
 	@printf "\n\033[1;33m SYNC\033[0m\n"
-	@printf "  \033[1;32mmake sync\033[0m                         Shallow sync SOURCE → TARGET\n"
-	@printf "  \033[1;32mmake sync-deep\033[0m                    Deep sync SOURCE → TARGET\n"
+	@printf "  \033[1;32mmake sync\033[0m                         Incremental shallow sync SOURCE → TARGET\n"
+	@printf "  \033[1;32mmake sync-deep\033[0m                    Incremental deep sync SOURCE → TARGET\n"
+	@printf "  \033[1;32mmake sync-force\033[0m                   Full sync SOURCE → TARGET (ignore state)\n"
 	@printf "\n\033[1;33m DIFF\033[0m\n"
 	@printf "  \033[1;32mmake diff\033[0m                         Full diff SOURCE vs TARGET\n"
 	@printf "  \033[1;32mmake diff-tldr\033[0m                    Summary diff SOURCE vs TARGET\n"
@@ -57,6 +58,9 @@ sync:
 
 sync-deep:
 	@$(SCRIPT) sync $(SOURCE) $(TARGET) --deep
+
+sync-force:
+	@$(SCRIPT) sync $(SOURCE) $(TARGET) --force
 
 diff:
 	@$(SCRIPT) diff $(SOURCE) $(TARGET)

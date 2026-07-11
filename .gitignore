@@ -21,6 +21,9 @@ uptime-kuma-config.json
 # Backups
 uptime-kuma-backups/*.json
 
+# Incremental sync state (instance-specific, not for version control)
+.uptime-kuma-sync-state.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
