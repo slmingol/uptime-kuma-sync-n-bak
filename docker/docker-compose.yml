@@ -29,7 +29,7 @@ services:
     environment:
       SYNC_SOURCE:   ${SYNC_SOURCE:-primary}
       SYNC_TARGET:   ${SYNC_TARGET:-secondary}
-      SYNC_INTERVAL: ${SYNC_INTERVAL:-3600}
+      SYNC_INTERVAL: ${SYNC_INTERVAL:-21600}
       SYNC_MODE:     ${SYNC_MODE:-shallow}
       DAEMON_PORT:   8089
     restart: unless-stopped

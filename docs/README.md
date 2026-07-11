@@ -265,7 +265,7 @@ Configure via environment variables in your shell or a `.env` file:
 |-----------------|------------|----------------------------------------|
 | `SYNC_SOURCE`   | `primary`  | Source instance name                   |
 | `SYNC_TARGET`   | `secondary`| Target instance name                   |
-| `SYNC_INTERVAL` | `3600`     | Seconds between syncs                  |
+| `SYNC_INTERVAL` | `21600`    | Seconds between syncs                  |
 | `SYNC_MODE`     | `shallow`  | Sync mode (`shallow` or `deep`)        |
 | `DAEMON_PORT`   | `8089`     | Web UI port                            |
 
