@@ -6,6 +6,7 @@ TARGET  ?= secondary
 
 .PHONY: help list monitors monitors-tldr build shell \
         sync sync-deep sync-force sync-prune sync-prune-dry sync-bidir diff diff-tldr backup restore \
+        daemon daemon-stop daemon-logs \
         test
 
 help:
@@ -28,6 +29,10 @@ help:
 	@printf "\n\033[1;33m BACKUP / RESTORE\033[0m\n"
 	@printf "  \033[1;32mmake backup\033[0m                       Backup SOURCE instance\n"
 	@printf "  \033[1;32mmake restore FILE=<path>\033[0m          Restore backup to TARGET\n"
+	@printf "\n\033[1;33m DAEMON\033[0m\n"
+	@printf "  \033[1;32mmake daemon\033[0m                       Start sync daemon + UI (port 8089)\n"
+	@printf "  \033[1;32mmake daemon-stop\033[0m                  Stop sync daemon\n"
+	@printf "  \033[1;32mmake daemon-logs\033[0m                  Follow daemon logs\n"
 	@printf "\n\033[1;33m CONTAINER\033[0m\n"
 	@printf "  \033[1;32mmake build\033[0m                        Build image locally\n"
 	@printf "  \033[1;32mmake shell\033[0m                        Interactive shell in container\n"
@@ -38,6 +43,18 @@ help:
 	@printf "  \033[1;35mSOURCE\033[0m=\033[0m$(SOURCE)   \033[1;35mTARGET\033[0m=$(TARGET)\n"
 	@printf "  \033[1;35mFILE\033[0m=<backup-path>  \033[90m(required for restore)\033[0m\n"
 	@printf "\n\033[90m  Example: make sync SOURCE=secondary TARGET=primary\033[0m\n\n"
+
+# Daemon
+daemon:
+	@touch uptime-kuma-sync-history.json .uptime-kuma-sync-state.json
+	@docker compose -f docker/docker-compose.yml up -d uptime-kuma-sync-daemon
+	@printf "\033[1;32mDaemon started — UI at http://localhost:8089\033[0m\n"
+
+daemon-stop:
+	@docker compose -f docker/docker-compose.yml stop uptime-kuma-sync-daemon
+
+daemon-logs:
+	@docker compose -f docker/docker-compose.yml logs -f uptime-kuma-sync-daemon
 
 # Container management
 build:

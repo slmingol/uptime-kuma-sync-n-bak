@@ -347,6 +347,7 @@ class UptimeKumaSync {
     }
 
     console.log(`Status pages: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ''}`);
+    return { created, updated, failed };
   }
 
   /**
@@ -1032,7 +1033,7 @@ class UptimeKumaSync {
       }
       
       // Sync status pages using the monitor ID mapping built above
-      await this.syncStatusPages(sourceSocket, targetSocket, monitorIdMapping);
+      const spResult = await this.syncStatusPages(sourceSocket, targetSocket, monitorIdMapping);
 
       // Build reverse mapping (target ID → source ID) for bidirectional pass
       const reverseIdMapping = {};
@@ -1062,6 +1063,13 @@ class UptimeKumaSync {
       console.log(`Updated: ${updated}`);
       console.log(`Unchanged (skipped): ${skipped}`);
       console.log(`Total: ${monitorList.length}`);
+
+      return {
+        created, updated, skipped,
+        failed: failedMonitors.length,
+        total: monitorList.length,
+        statusPages: spResult || { created: 0, updated: 0, failed: 0 }
+      };
       
       // Report failed monitors if any
       if (failedMonitors.length > 0) {
@@ -1077,8 +1085,7 @@ class UptimeKumaSync {
       }
       
     } catch (err) {
-      console.error('Sync failed:', err.message);
-      process.exit(1);
+      throw err;
     } finally {
       // Disconnect
       if (sourceSocket) sourceSocket.disconnect();
@@ -1294,7 +1301,10 @@ if (require.main === module) {
 
   // Run sync
   const syncer = new UptimeKumaSync(config);
-  syncer.sync();
+  syncer.sync().catch(err => {
+    console.error('Sync failed:', err.message);
+    process.exit(1);
+  });
 }
 
 // Export for testing
