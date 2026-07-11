@@ -14,6 +14,8 @@ services:
     # command: node src/uptime-kuma-diff.js primary secondary --tldr
 
   # Sync daemon — runs sync on a schedule and serves a status UI on port 8089
+  # Use `make daemon` to start — it pre-creates state files on the host so Docker
+  # mounts them as files rather than directories.
   uptime-kuma-sync-daemon:
     image: ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest
     container_name: uptime-kuma-sync-daemon
