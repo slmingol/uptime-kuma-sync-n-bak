@@ -131,63 +131,43 @@ Copy `.env.uptime-kuma` to `.env.uptime-kuma.local` and configure:
 cp .env.uptime-kuma .env.uptime-kuma.local
 ```
 
-## Docker Installation (Recommended for Portability)
+## Getting Started (Docker — No Clone Required)
 
-No Node.js installation required! Run everything in a Docker container.
+No Node.js or git clone needed. Copy three files to any Docker host and run.
 
-### Using Pre-built Images (Easiest)
-
-Pull the latest image from GitHub Container Registry:
+### 1. Create a deployment directory
 
 ```bash
-docker pull ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest
-# or specific version
-docker pull ghcr.io/slmingol/uptime-kuma-sync-n-bak:1.0.0
+mkdir uptime-kuma-sync && cd uptime-kuma-sync
 ```
 
-Then use `uptime-kuma-docker.sh` (update the IMAGE_NAME variable to use ghcr.io image) or run directly:
+### 2. Download the required files
 
 ```bash
-docker run --rm \
-  -v "$(pwd)/uptime-kuma-config.json:/app/uptime-kuma-config.json:ro" \
-  -v "$(pwd)/uptime-kuma-backups:/app/uptime-kuma-backups" \
-  ghcr.io/slmingol/uptime-kuma-sync-n-bak:latest \
-  node src/uptime-kuma-backup.js --list
+curl -O https://raw.githubusercontent.com/slmingol/uptime-kuma-sync-n-bak/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/slmingol/uptime-kuma-sync-n-bak/main/Makefile
+curl -O https://raw.githubusercontent.com/slmingol/uptime-kuma-sync-n-bak/main/uptime-kuma-config.json.example
 ```
 
-### Building Locally
-
-1. Build the Docker image:
-
-```bash
-./scripts/uptime-kuma-docker.sh build
-```
-
-2. Create your config file:
+### 3. Configure your instances
 
 ```bash
 cp uptime-kuma-config.json.example uptime-kuma-config.json
-# Edit with your instance details
+# Edit uptime-kuma-config.json with your instance URLs and credentials
 ```
 
-3. Run commands:
+### 4. Start the sync daemon
 
 ```bash
-# List available instances
-./scripts/uptime-kuma-docker.sh list
-
-# Backup an instance
-./scripts/uptime-kuma-docker.sh backup primary
-
-# Sync between instances (shallow mode - default)
-./scripts/uptime-kuma-docker.sh sync primary secondary
-
-# Deep sync (copy all settings)
-./scripts/uptime-kuma-docker.sh sync primary secondary --deep
-
-# Restore from backup
-./scripts/uptime-kuma-docker.sh restore uptime-kuma-backups/primary-2026-03-01.json secondary
+make daemon
 ```
+
+The daemon starts immediately, syncs primary → secondary, then repeats every 6 hours.
+Web UI available at `http://<host>:8089`.
+
+---
+
+## Docker Installation (Dev / Full Repo)
 
 ### Docker Commands Reference
 
