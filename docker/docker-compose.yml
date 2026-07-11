@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # One-shot sync/backup/diff/restore — override command as needed
   uptime-kuma-sync:
