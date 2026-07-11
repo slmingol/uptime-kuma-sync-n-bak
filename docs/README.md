@@ -31,6 +31,10 @@ This tool synchronizes monitors and groups between two Uptime Kuma instances whi
 - ✅ **Standalone backup tool** - Backup any instance on demand
 - ✅ **Restore tool** - Restore from any backup file
 - ✅ **Diff tool** - Compare monitors between two instances
+- ✅ **Incremental sync** - Hash-based change detection skips unchanged monitors
+- ✅ **Prune** - Optionally delete target monitors absent from source (`--prune`)
+- ✅ **Bidirectional sync** - Copy target-only monitors back to source (`--bidirectional`)
+- ✅ **Sync daemon** - Scheduled sync service with a web status UI
 
 ## Sync Modes
 
@@ -192,8 +196,12 @@ cp uptime-kuma-config.json.example uptime-kuma-config.json
 ./scripts/uptime-kuma-docker.sh monitors <instance>                     # List monitors grouped by parent
 ./scripts/uptime-kuma-docker.sh monitors <instance> --tldr              # Monitor count by group and type
 ./scripts/uptime-kuma-docker.sh backup <instance>                       # Backup an instance
-./scripts/uptime-kuma-docker.sh sync <source> <target>                  # Sync instances (shallow)
+./scripts/uptime-kuma-docker.sh sync <source> <target>                  # Incremental shallow sync
 ./scripts/uptime-kuma-docker.sh sync <source> <target> --deep           # Sync with all settings
+./scripts/uptime-kuma-docker.sh sync <source> <target> --force          # Full sync, ignore state
+./scripts/uptime-kuma-docker.sh sync <source> <target> --prune          # Sync + delete target-only monitors
+./scripts/uptime-kuma-docker.sh sync <source> <target> --prune --dry-run  # Preview prune without deleting
+./scripts/uptime-kuma-docker.sh sync <source> <target> --bidirectional  # Sync both directions (source wins)
 ./scripts/uptime-kuma-docker.sh diff <source> <target>                  # Compare instances
 ./scripts/uptime-kuma-docker.sh diff <source> <target> --tldr           # Compare instances (summary)
 ./scripts/uptime-kuma-docker.sh restore <backup-file> [instance]        # Restore from backup
@@ -210,12 +218,19 @@ A `Makefile` wraps the Docker script for the most common operations. Run `make h
 make list                        # List configured instances
 make monitors                    # List monitors in SOURCE grouped by parent
 make monitors-tldr               # Monitor count by group and type for SOURCE
-make sync                        # Sync primary → secondary (shallow)
-make sync-deep                   # Sync primary → secondary (deep, all settings)
-make diff                        # Diff primary vs secondary (full detail)
-make diff-tldr                   # Diff primary vs secondary (summary)
-make backup                      # Backup primary instance
-make restore                     # Restore (prompts for file and target)
+make sync                        # Incremental shallow sync SOURCE → TARGET
+make sync-deep                   # Sync SOURCE → TARGET (deep, all settings)
+make sync-force                  # Full sync SOURCE → TARGET (bypass state)
+make sync-prune                  # Sync + delete target monitors absent from SOURCE
+make sync-prune-dry              # Preview what sync-prune would delete
+make sync-bidir                  # Bidirectional sync (source wins conflicts)
+make diff                        # Diff SOURCE vs TARGET (full detail)
+make diff-tldr                   # Diff SOURCE vs TARGET (summary)
+make backup                      # Backup SOURCE instance
+make restore FILE=<path>         # Restore backup to TARGET
+make daemon                      # Start sync daemon + UI (port 8089)
+make daemon-stop                 # Stop sync daemon
+make daemon-logs                 # Follow daemon logs
 make build                       # Build the Docker image locally
 make shell                       # Drop into an interactive container shell
 ```
@@ -225,31 +240,52 @@ Override source/target instances:
 make sync SOURCE=secondary TARGET=primary
 ```
 
-### Docker Compose (For Scheduled Backups)
+### Sync Daemon (Scheduled Sync + Web UI)
 
-The `docker-compose.yml` file includes a service for scheduled backups:
-
-```yaml
-# Edit docker-compose.yml to customize backup schedule
-# Default: backup every 6 hours
-
-docker-compose up -d uptime-kuma-backup-cron
-```
-
-To run one-off commands with docker-compose:
+The daemon runs a sync on a configurable schedule and serves a status UI at port 8089.
 
 ```bash
-# Backup
-docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-backup.js primary
+# Start the daemon (pre-creates state files, then starts the Docker Compose service)
+make daemon
 
-# Sync
-docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-sync.js primary secondary
+# Stop the daemon
+make daemon-stop
 
-# Diff
-docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-diff.js primary secondary
+# Follow logs
+make daemon-logs
+```
 
-# List instances
-docker-compose run --rm uptime-kuma-sync node src/uptime-kuma-backup.js --list
+The `make daemon` target is the correct way to start it — it runs `touch` on the host-side
+state files before Docker mounts them (Docker creates missing mount targets as directories,
+which breaks JSON parsing).
+
+Configure via environment variables in your shell or a `.env` file:
+
+| Variable        | Default    | Description                            |
+|-----------------|------------|----------------------------------------|
+| `SYNC_SOURCE`   | `primary`  | Source instance name                   |
+| `SYNC_TARGET`   | `secondary`| Target instance name                   |
+| `SYNC_INTERVAL` | `3600`     | Seconds between syncs                  |
+| `SYNC_MODE`     | `shallow`  | Sync mode (`shallow` or `deep`)        |
+| `DAEMON_PORT`   | `8089`     | Web UI port                            |
+
+The web UI at `http://localhost:8089` shows sync status, countdown to next sync, a "Sync Now"
+button, and a history table of recent runs.
+
+### Docker Compose (Standalone Scheduled Backup)
+
+The `docker-compose.yml` also includes a service for scheduled backups (separate from the daemon):
+
+```bash
+docker compose -f docker/docker-compose.yml up -d uptime-kuma-backup-cron
+```
+
+To run one-off commands:
+
+```bash
+docker compose -f docker/docker-compose.yml run --rm uptime-kuma-sync node src/uptime-kuma-backup.js primary
+docker compose -f docker/docker-compose.yml run --rm uptime-kuma-sync node src/uptime-kuma-sync.js primary secondary
+docker compose -f docker/docker-compose.yml run --rm uptime-kuma-sync node src/uptime-kuma-diff.js primary secondary
 ```
 
 ### Manual Docker Run
@@ -814,29 +850,29 @@ Available instances: primary, secondary, local
 
 ## Bidirectional Sync
 
-To keep both instances in sync:
+Use the `--bidirectional` flag (or `make sync-bidir`) to sync monitors in both directions in a single run:
 
-1. Run sync from Instance A to Instance B
-2. Run sync from Instance B to Instance A
-3. Schedule both syncs to run alternately
-
-Example:
 ```bash
-# Sync A → B every even hour
-0 */2 * * * cd /path/to/project && ./scripts/sync-uptime.sh primary secondary
+# Sync primary → secondary, then copy secondary-only monitors back to primary
+make sync-bidir
 
-# Sync B → A every odd hour  
-0 1-23/2 * * * cd /path/to/project && ./scripts/sync-uptime.sh secondary primary
+# Or directly:
+./scripts/uptime-kuma-docker.sh sync primary secondary --bidirectional
 ```
+
+**Conflict resolution:** Source always wins. If a monitor exists on both instances, the source version is authoritative. The bidirectional pass only copies monitors that exist exclusively on the target back to the source.
+
+**Mutually exclusive with `--prune`** — you can't prune and bidirectional-sync in the same run.
 
 ## Scripts Overview
 
 ### Core Node.js Scripts
-- **uptime-kuma-sync.js** - Sync monitors between two instances (auto-backup included)
+- **uptime-kuma-sync.js** - Sync monitors between two instances (auto-backup, incremental, prune, bidirectional)
 - **uptime-kuma-backup.js** - Standalone backup tool for any instance
 - **uptime-kuma-restore.js** - Restore monitors from a backup file
 - **uptime-kuma-list.js** - List monitors in an instance grouped by parent group
 - **uptime-kuma-diff.js** - Compare monitors between two instances
+- **uptime-kuma-daemon.js** - Scheduled sync daemon with web status UI (run via `make daemon`)
 
 ### Bash Wrapper Scripts
 - **sync-uptime.sh** - Convenience wrapper for syncing
@@ -859,7 +895,8 @@ Example:
 - The script uses Socket.IO to communicate with Uptime Kuma
 - Monitors are matched by name + type
 - Existing monitors are updated, new ones are created
-- Deleted monitors in source are NOT deleted in target (manual cleanup needed)
+- Deleted monitors in source are NOT deleted in target by default — use `--prune` to remove them
+- **Incremental sync** skips monitors whose hash hasn't changed; use `--force` to bypass
 - **Automatic backups are created before every sync** - No data loss risk!
 - Instance names in config make it easy to manage multiple environments
 
