@@ -27,7 +27,7 @@
     "socket.io-client": "^4.6.1"
   },
   "devDependencies": {
-    "dotenv": "^16.4.1"
+    "dotenv": "^18.0.0"
   },
   "engines": {
     "node": ">=14.0.0"
