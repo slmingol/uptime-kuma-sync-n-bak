@@ -47,8 +47,8 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --rm uptime-kuma-sync:pr-${{ github.event.pull_request.number }} node uptime-kuma-sync.js --help
-          docker run --rm uptime-kuma-sync:pr-${{ github.event.pull_request.number }} node uptime-kuma-backup.js --help
+          docker run --rm uptime-kuma-sync:pr-${{ github.event.pull_request.number }} node src/uptime-kuma-sync.js --help
+          docker run --rm uptime-kuma-sync:pr-${{ github.event.pull_request.number }} node src/uptime-kuma-backup.js --help
 
       - name: Check version
         id: version
