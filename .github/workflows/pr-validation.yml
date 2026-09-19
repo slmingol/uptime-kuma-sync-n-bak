@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "Validating JSON files..."
           node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
-          node -e "JSON.parse(require('fs').readFileSync('uptime-kuma-config.json.example', 'utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('uptime-kuma-config.json.example', 'utf8').replace(/^#[^\n]*\n/gm, ''))"
           echo "✓ All JSON files are valid"
 
       - name: Build Docker image
