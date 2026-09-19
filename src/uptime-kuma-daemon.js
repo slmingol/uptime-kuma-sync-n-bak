@@ -391,9 +391,24 @@ const server = http.createServer(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 server.listen(PORT, () => {
-  console.log(`[daemon] Uptime Kuma Sync Daemon started`);
-  console.log(`[daemon] Source: ${SOURCE}  Target: ${TARGET}  Mode: ${SYNC_MODE}`);
-  console.log(`[daemon] Interval: ${INTERVAL_S}s  UI: http://localhost:${PORT}`);
+  const pkg = JSON.parse(require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'package.json'), 'utf8'));
+  const nodeVer = process.version;
+  const started = new Date().toISOString();
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════╗');
+  console.log('║        Uptime Kuma Sync Daemon                   ║');
+  console.log(`║  Version : ${pkg.version.padEnd(38)}║`);
+  console.log(`║  Node.js : ${nodeVer.padEnd(38)}║`);
+  console.log(`║  Started : ${started.padEnd(38)}║`);
+  console.log('╠══════════════════════════════════════════════════╣');
+  console.log(`║  Source  : ${SOURCE.padEnd(38)}║`);
+  console.log(`║  Target  : ${TARGET.padEnd(38)}║`);
+  console.log(`║  Mode    : ${SYNC_MODE.padEnd(38)}║`);
+  console.log(`║  Interval: ${String(INTERVAL_S + 's').padEnd(38)}║`);
+  console.log(`║  UI      : ${('http://localhost:' + PORT).padEnd(38)}║`);
+  console.log('╚══════════════════════════════════════════════════╝');
+  console.log('');
 });
 
 // Run once immediately on start, then schedule
